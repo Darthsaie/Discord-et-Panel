@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  /* Style pour les en-têtes triables */
+  th.sortable { cursor: pointer; user-select: none; transition: 0.2s; }
+  th.sortable:hover { background-color: rgba(255,255,255,0.1); color: #fff; }
+  th.sortable span { font-size: 0.8em; opacity: 0.5; margin-left: 5px; }
+  
+  /* Style spécifique pour la colonne validité */
+  .validity-active { color: #34d399; font-weight: 500; }
+  .validity-cancel { color: #f87171; font-weight: 500; }
+  .validity-trial { color: #fb923c; }
+  .validity-manual { color: #60a5fa; font-style: italic; }
+</style>
+
+<section class="section">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h1>Panel Admin — Gestion</h1>
+    <div style="display:flex; gap:10px;">
+      <a href="{{ url_for('dashboard') }}" class="btn">← Dashboard</a>
+      <a href="{{ url_for('stripe_status') }}" target="_blank" class="btn">Stripe Status</a>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:40px; padding:24px; background:#111; border:1px solid var(--border);">
+    <h3 style="margin-top:0; margin-bottom:16px; color:var(--txt-primary);">⚡ Ajouter / Modifier un accès manuellement</h3>
+    <form method="post" action="{{ url_for('admin_create_sub') }}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:end;">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label style="font-size:0.8rem; color:var(--txt-secondary);">ID Serveur Discord</label>
+        <input type="text" name="guild_discord_id" placeholder="Ex: 123456789..." class="input" style="width:180px;" required>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label style="font-size:0.8rem; color:var(--txt-secondary);">Nom Serveur (Mémo)</label>
+        <input type="text" name="guild_name" placeholder="Nom optionnel" class="input" style="width:150px;">
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label style="font-size:0.8rem; color:var(--txt-secondary);">Bot</label>
+        <select name="bot_key" class="input" style="width:120px;">
+          <option value="homer">Homer</option>
+          <option value="cartman">Cartman</option>
+          <option value="deadpool">Deadpool</option>
+          <option value="yoda">Yoda</option>
+        </select>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label style="font-size:0.8rem; color:var(--txt-secondary);">Type d'accès</label>
+        <select name="status" class="input" style="width:120px;" id="statusSelect">
+          <option value="trial">Essai</option>
+          <option value="active">Actif</option>
+          <option value="lifetime">VIP (À vie)</option>
+          <option value="canceled">Annulé</option>
+        </select>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <label style="font-size:0.8rem; color:var(--txt-secondary);">Durée (Jours)</label>
+        <input type="number" name="days" value="5" class="input" style="width:70px;">
+      </div>
+      <button type="submit" class="btn btn-primary" style="height:38px;">Valider l'accès</button>
+    </form>
+  </div>
+
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px; margin-top:40px;">
+      <h3>Abonnements existants</h3>
+      <div style="position:relative;">
+        <input type="text" id="searchInput" placeholder="🔍 Rechercher ID, Nom, Bot..." 
+               class="input" style="width:300px; padding-left:15px; border-color:var(--accent);">
+        <span id="countDisplay" style="position:absolute; right:0; top:-25px; font-size:0.8rem; color:var(--txt-secondary);"></span>
+      </div>
+  </div>
+
+  <div class="card" style="padding:0; overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; min-width:900px;" id="mainTable">
+      <thead style="background:rgba(255,255,255,0.05); text-align:left;">
+        <tr>
+          <th class="sortable" onclick="sortTable(0)" style="padding:12px;"># <span>⇕</span></th>
+          <th class="sortable" onclick="sortTable(1)" style="padding:12px;">Guild / ID <span>⇕</span></th>
+          <th class="sortable" onclick="sortTable(2)" style="padding:12px;">Bot <span>⇕</span></th>
+          <th class="sortable" onclick="sortTable(3)" style="padding:12px;">Status <span>⇕</span></th>
+          <th class="sortable" onclick="sortTable(4)" style="padding:12px;">Validité / Expiration <span>⇕</span></th>
+          <th style="padding:12px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+      {% for s in subs %}
+        <tr style="border-top:1px solid var(--border);" class="searchable-row">
+          
+          <td style="padding:12px; font-family:monospace; color:var(--secondary);">{{ s.id }}</td>
+          
+          <td style="padding:12px;">
+            <div style="font-weight:bold; color:#fff;">{{ s.guild.name }}</div>
+            <div style="font-family:monospace; font-size:0.75em; color:var(--txt-secondary);">{{ s.guild.discord_id }}</div>
+          </td>
+          
+          <td style="padding:12px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              {{ s.bot_type.key|capitalize }}
+            </div>
+          </td>
+          
+          <td style="padding:12px;">
+            <span class="chip {% if s.status in ('active','lifetime') %}ok{% elif s.status=='trial' %}warn{% else %}bad{% endif %}">
+              {{ s.status|upper }}
+            </span>
+          </td>
+
+          <td style="padding:12px; font-size:0.9rem;">
+            {% if s.status == 'trial' %}
+               <span class="validity-trial">
+                 ⏳ Fin essai : {{ s.trial_until.strftime('%d/%m %H:%M') if s.trial_until else '?' }}
+               </span>
+            
+            {% elif s.status == 'lifetime' %}
+               <span style="color:#a855f7; font-weight:bold;">∞ VIP À vie</span>
+            
+            {% elif s.status == 'active' %}
+               {% if s.current_period_end %}
+                  {% if s.cancel_at_period_end %}
+                    <span class="validity-cancel">🛑 Fin le {{ s.current_period_end.strftime('%d/%m/%Y') }}</span>
+                    <div style="font-size:0.75em; opacity:0.7;">(Ne sera pas renouvelé)</div>
+                  {% else %}
+                    <span class="validity-active">🔄 Renouvellement : {{ s.current_period_end.strftime('%d/%m/%Y') }}</span>
+                  {% endif %}
+               {% else %}
+                  <span class="validity-manual">Actif (Manuel / Pas de date)</span>
+               {% endif %}
+            
+            {% elif s.status == 'canceled' %}
+               <span class="muted">Terminé</span>
+            {% else %}
+               -
+            {% endif %}
+          </td>
+
+          <td style="padding:12px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+              
+              {% if s.status == 'active' %}
+              <form method="post" action="{{ url_for('admin_sync_stripe', sub_id=s.id) }}">
+                <button type="submit" class="btn" style="border-color:#3b82f6; color:#3b82f6; padding:4px 8px; font-size:0.8rem;" title="Forcer la récupération de la date chez Stripe">
+                  Sync
+                </button>
+              </form>
+              {% endif %}
+
+              <form method="post" action="{{ url_for('admin_set_status', sub_id=s.id) }}" style="display:flex;gap:4px;">
+                <select name="status" class="input input-sm" style="width:70px; font-size:0.8rem;">
+                  <option value="active" {% if s.status=='active' %}selected{% endif %}>active</option>
+                  <option value="trial" {% if s.status=='trial' %}selected{% endif %}>trial</option>
+                  <option value="canceled" {% if s.status=='canceled' %}selected{% endif %}>cancel</option>
+                  <option value="lifetime" {% if s.status=='lifetime' %}selected{% endif %}>VIP</option>
+                </select>
+                <button type="submit" class="btn" style="padding:4px 8px;" title="Sauvegarder statut">OK</button>
+              </form>
+
+              {% if s.status == 'trial' %}
+              <form method="post" action="{{ url_for('admin_prolong_trial', sub_id=s.id) }}" style="display:flex;gap:4px;">
+                <input type="number" name="days" value="5" class="input input-sm" style="width:40px;" min="1">
+                <button type="submit" class="btn" style="padding:4px 8px;" title="Ajouter des jours">+J</button>
+              </form>
+              {% endif %}
+
+              <form method="post" action="{{ url_for('admin_delete_sub', sub_id=s.id) }}" onsubmit="return confirm('Supprimer ?')">
+                <button type="submit" class="btn bad" style="padding:4px 8px;" title="Supprimer">X</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" style="padding:20px; text-align:center; color:var(--txt-secondary);">Aucune donnée.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin-top:40px; opacity:0.7;">Logs des essais passés</h3>
+  <div class="card" style="padding:0; opacity:0.8;">
+    <table style="width:100%; border-collapse:collapse;">
+      <thead style="background:rgba(255,255,255,0.05); text-align:left;">
+        <tr>
+          <th style="padding:10px;">User ID</th>
+          <th style="padding:10px;">Bot</th>
+          <th style="padding:10px;">Guild ID</th>
+          <th style="padding:10px;">Date Fin</th>
+          <th style="padding:10px;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for l in locks %}
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:10px; font-family:monospace; font-size:0.9em;">{{ l.discord_user_id }}</td>
+          <td style="padding:10px;">{{ l.bot_key|capitalize }}</td>
+          <td style="padding:10px; font-family:monospace; font-size:0.9em;">{{ l.guild_discord_id }}</td>
+          <td style="padding:10px;">{{ l.until.strftime('%Y-%m-%d') }}</td>
+          <td style="padding:10px;">
+            <form method="post" action="{{ url_for('admin_release_lock', lock_id=l.id) }}">
+              <button type="submit" class="btn warn" style="padding:2px 6px; font-size:0.8em;">Unlock</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- 1. FONCTION DE RECHERCHE ---
+    const searchInput = document.getElementById('searchInput');
+    const tableBody = document.getElementById('tableBody');
+    const rows = tableBody.getElementsByClassName('searchable-row');
+    const countDisplay = document.getElementById('countDisplay');
+
+    searchInput.addEventListener('keyup', function() {
+        const filter = searchInput.value.toLowerCase();
+        let visibleCount = 0;
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const textContent = row.textContent || row.innerText;
+            
+            if (textContent.toLowerCase().indexOf(filter) > -1) {
+                row.style.display = "";
+                visibleCount++;
+            } else {
+                row.style.display = "none";
+            }
+        }
+        
+        if (filter.length > 0) {
+            countDisplay.innerText = visibleCount + " résultat(s)";
+        } else {
+            countDisplay.innerText = "";
+        }
+    });
+
+    // --- 2. FONCTION DE TRI ---
+    window.sortTable = function(n) {
+      var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+      table = document.getElementById("mainTable");
+      switching = true;
+      dir = "asc"; 
+      
+      while (switching) {
+        switching = false;
+        rows = table.rows;
+        for (i = 1; i < (rows.length - 1); i++) {
+          shouldSwitch = false;
+          x = rows[i].getElementsByTagName("TD")[n];
+          y = rows[i + 1].getElementsByTagName("TD")[n];
+          
+          var xContent = x.textContent.toLowerCase();
+          var yContent = y.textContent.toLowerCase();
+          
+          if(n === 0) { // Tri numérique pour la colonne ID
+             var xNum = parseInt(xContent);
+             var yNum = parseInt(yContent);
+             if (dir == "asc") { if (xNum > yNum) { shouldSwitch = true; break; } } 
+             else if (dir == "desc") { if (xNum < yNum) { shouldSwitch = true; break; } }
+          } else { // Tri alphabétique
+             if (dir == "asc") { if (xContent > yContent) { shouldSwitch = true; break; } } 
+             else if (dir == "desc") { if (xContent < yContent) { shouldSwitch = true; break; } }
+          }
+        }
+        if (shouldSwitch) {
+          rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+          switching = true;
+          switchcount ++; 
+        } else {
+          if (switchcount == 0 && dir == "asc") {
+            dir = "desc";
+            switching = true;
+          }
+        }
+      }
+    };
+});
+</script>
+{% endblock %}

@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .dash-header { 
+    display:flex; justify-content:space-between; align-items:end; margin-bottom: 40px; 
+  }
+  .dash-title { 
+    font-size: 2.2rem; font-weight: 800; margin: 0; 
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .dash-sub { color: var(--secondary); margin-top: 5px; font-size: 1.1rem; }
+
+  /* Bouton Programmateur Amélioré */
+  .btn-scheduler-hero {
+    background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+    color: white; border: none; padding: 14px 28px; border-radius: 16px;
+    font-weight: 700; font-size: 1rem; text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
+    box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3); transition: 0.3s;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .btn-scheduler-hero:hover { 
+    transform: translateY(-3px) scale(1.02); 
+    box-shadow: 0 15px 40px rgba(236, 72, 153, 0.5); 
+  }
+
+  /* Conteneur Serveur Style Glass */
+  .guild-card {
+    background: rgba(30, 41, 59, 0.4); /* Plus transparent */
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 24px; margin-bottom: 50px; overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    transition: transform 0.3s;
+  }
+  
+  .guild-header {
+    padding: 25px 30px; 
+    background: rgba(255,255,255,0.03); 
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .guild-icon {
+    width: 56px; height: 56px; border-radius: 16px; 
+    background: #333; object-fit: cover;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  }
+  .guild-info h2 { margin: 0; font-size: 1.3rem; color: white; }
+  .guild-id { font-family: monospace; font-size: 0.85rem; color: var(--secondary); opacity: 0.7; margin-top: 4px;}
+
+  /* Grille des Bots */
+  .bots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px; padding: 30px;
+  }
+
+  .bot-item {
+    background: rgba(0,0,0,0.2); 
+    border: 1px solid rgba(255,255,255,0.05); 
+    border-radius: 18px; padding: 20px;
+    display: flex; flex-direction: column; gap: 15px;
+    transition: 0.3s;
+  }
+  .bot-item:hover { background: rgba(255,255,255,0.05); transform: translateY(-5px); }
+
+  .bot-head { display: flex; align-items: center; gap: 15px; }
+  .bot-img { width: 48px; height: 48px; border-radius: 12px; background: #222; object-fit: cover; }
+  
+  /* Badges */
+  .status-badge {
+    font-size: 0.7rem; font-weight: 800; padding: 4px 10px; border-radius: 20px; 
+    text-transform: uppercase; display: inline-block; margin-top: 4px;
+    letter-spacing: 0.5px;
+  }
+  .st-active { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+  .st-trial { 
+    background: rgba(249, 115, 22, 0.15); color: #fb923c; 
+    border: 1px solid rgba(249, 115, 22, 0.2);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .st-inactive { background: rgba(255,255,255,0.05); color: #94a3b8; }
+
+  .bot-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
+  
+  .action-btn {
+    width: 100%; padding: 10px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; 
+    display: flex; align-items: center; justify-content: center; text-decoration: none; transition: 0.2s;
+    cursor: pointer; border: none;
+  }
+
+  .btn-subscribe { 
+    background: #5865F2; color: white; 
+    box-shadow: 0 4px 15px rgba(88, 101, 242, 0.25);
+  }
+  .btn-subscribe:hover { background: #4752c4; box-shadow: 0 6px 20px rgba(88, 101, 242, 0.4); }
+
+  .btn-inv { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: var(--secondary); }
+  .btn-inv:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,0.05); }
+
+  .btn-manage { background: rgba(255,255,255,0.1); color: #fff; }
+  .btn-manage:hover { background: rgba(255,255,255,0.2); }
+
+  .btn-trial { background: #f97316; color: #fff; }
+  .btn-trial:hover { background: #ea580c; }
+
+  @media(max-width: 600px) {
+    .dash-header { flex-direction: column; align-items: flex-start; gap: 20px; }
+    .btn-scheduler-hero { width: 100%; justify-content: center; }
+    .bots-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="dash-header">
+  <div>
+    <h1 class="dash-title">Tableau de bord</h1>
+    <p class="dash-sub">Gérez vos serveurs et vos abonnements.</p>
+  </div>
+  <a href="{{ url_for('scheduler_list') }}" class="btn-scheduler-hero">
+    <span></span> Planifier des tâches
+  </a>
+</div>
+
+{% if not guilds %}
+  <div style="text-align:center; padding:80px 20px; background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.1); border-radius:24px;">
+    <div style="font-size:4rem; margin-bottom:20px; opacity:0.8;">🕵️‍♂️</div>
+    <h3 style="font-size:1.5rem; margin-bottom:10px;">Aucun serveur détecté</h3>
+    <p style="color:var(--secondary); margin-bottom:30px; max-width:400px; margin-left:auto; margin-right:auto;">
+      Assure-toi d'être administrateur sur tes serveurs Discord pour qu'ils apparaissent ici.
+    </p>
+    <a href="{{ url_for('guilds_sync') }}" class="action-btn btn-subscribe" style="width:auto; display:inline-flex; padding:12px 30px;">Synchroniser mes serveurs</a>
+  </div>
+{% endif %}
+
+{% for g in guilds %}
+  {% set icon_hash = (guild_icons or {}).get(g.discord_id) %}
+  {% set icon_url = "https://cdn.discordapp.com/icons/" ~ g.discord_id ~ "/" ~ icon_hash ~ ".png?size=128" if icon_hash else None %}
+
+  <div class="guild-card">
+    <div class="guild-header">
+      {% if icon_url %} <img src="{{ icon_url }}" class="guild-icon">
+      {% else %} <div class="guild-icon" style="display:grid; place-items:center; color:#fff; font-weight:bold; font-size:1.2rem;">{{ g.name[:2] }}</div>
+      {% endif %}
+      <div class="guild-info">
+        <h2>{{ g.name }}</h2>
+        <div class="guild-id">ID: {{ g.discord_id }}</div>
+      </div>
+      <div style="margin-left:auto;">
+        <a href="https://discord.com/channels/{{ g.discord_id }}" target="_blank" class="action-btn btn-inv" style="padding:8px 16px; font-size:0.8rem; width:auto;">Ouvrir Discord ↗</a>
+      </div>
+    </div>
+
+    <div class="bots-grid">
+      {% for bot in bots %}
+        {% set sub = (submap.get(bot.key) or {}).get(g.discord_id) %}
+        {% set is_active = sub and sub.status in ('active', 'lifetime') %}
+        {% set is_trial = sub and sub.status == 'trial' and sub.trial_until and sub.trial_until > now_utc %}
+        {% set avatar = (bot_avatars or {}).get(bot.key) %}
+
+        <div class="bot-item">
+          <div class="bot-head">
+            {% if avatar %} <img src="{{ avatar }}" class="bot-img">
+            {% else %} <div class="bot-img" style="display:grid; place-items:center;">?</div>
+            {% endif %}
+            <div>
+              <div style="font-weight:bold; font-size:1.05rem;">{{ bot.name }}</div>
+              
+              {% if is_active %}
+                <span class="status-badge st-active">Actif</span>
+              {% elif is_trial %}
+                <span class="status-badge st-trial">
+                  Essai
+                  {% if sub.trial_remaining_info %}
+                    &bull; {{ sub.trial_remaining_info }}
+                  {% endif %}
+                </span>
+              {% else %}
+                <span class="status-badge st-inactive">Inactif</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="bot-actions">
+            <a href="{{ url_for('invite', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" class="action-btn btn-inv">Inviter</a>
+
+            {% if is_active %}
+              <form method="post" action="{{ url_for('billing_portal', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
+                <button class="action-btn btn-manage">Gérer l'abonnement</button>
+              </form>
+            {% elif is_trial %}
+              <form method="post" action="{{ url_for('subscribe', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
+                <button class="action-btn btn-subscribe">S'abonner</button>
+              </form>
+            {% else %}
+              {% if not has_any_active and not trial_ever and not active_lock %}
+                <form method="post" action="{{ url_for('trial_start', guild_id=g.discord_id, bot_key=bot.key) }}" style="width:100%">
+                  <button class="action-btn btn-trial">Essai Gratuit</button>
+                </form>
+              {% else %}
+                <form method="post" action="{{ url_for('subscribe', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
+                  <button class="action-btn btn-subscribe">S'abonner</button>
+                </form>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endfor %}
+
+{% endblock %}

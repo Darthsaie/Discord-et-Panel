@@ -1,0 +1,80 @@
+services:
+  homer:
+    build:
+      context: .
+      dockerfile: bots/homer/Dockerfile
+    container_name: homer-bot
+    restart: always
+    volumes:
+      - ./shared:/app/shared
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    environment:
+      BOT_KEY: homer
+      PANEL_API_URL: http://bots-panel:5000
+      PANEL_API_TOKEN: ${PANEL_API_TOKEN}
+
+  cartman:
+    build:
+      context: .
+      dockerfile: bots/cartman/Dockerfile
+    container_name: cartman-bot
+    restart: always
+    volumes:
+      - ./shared:/app/shared
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    environment:
+      BOT_KEY: cartman
+      PANEL_API_URL: http://bots-panel:5000
+      PANEL_API_TOKEN: ${PANEL_API_TOKEN}
+
+  deadpool:
+    build:
+      context: .
+      dockerfile: bots/deadpool/Dockerfile
+    container_name: deadpool-bot
+    restart: always
+    volumes:
+      - ./shared:/app/shared
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    environment:
+      BOT_KEY: deadpool
+      PANEL_API_URL: http://bots-panel:5000
+      PANEL_API_TOKEN: ${PANEL_API_TOKEN}
+
+  yoda:
+    build:
+      context: .
+      dockerfile: bots/yoda/Dockerfile
+    container_name: yoda-bot
+    restart: always
+    volumes:
+      - ./shared:/app/shared
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    environment:
+      BOT_KEY: yoda
+      PANEL_API_URL: http://bots-panel:5000
+      PANEL_API_TOKEN: ${PANEL_API_TOKEN}
+
+  panel:
+    build:
+      context: ./panel_pro
+      dockerfile: Dockerfile
+    container_name: bots-panel
+    restart: always
+    volumes:
+      - ./panel_pro:/app
+      - ./.env:/app/.env
+    # --- MODIFICATION ICI : Port 5001 (Extérieur) -> 5000 (Intérieur) ---
+    ports:
+      - "5001:5000"
+    # --------------------------------------------------------------------
+    env_file:
+      - .env

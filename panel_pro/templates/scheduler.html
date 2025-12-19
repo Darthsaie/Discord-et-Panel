@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  /* --- STYLE DES TÂCHES EN CARTE (MOBILE) --- */
+  @media (max-width: 768px) {
+    /* On cache le tableau classique */
+    .tasks-table { display: none; }
+    
+    /* On affiche la vue "Cartes" */
+    .mobile-tasks-list { display: flex; flex-direction: column; gap: 15px; }
+    
+    .task-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    
+    .task-card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 5px;
+    }
+    .task-bot-name { font-weight: 800; font-size: 1.1rem; text-transform: capitalize; color: #fff; }
+    
+    .task-row { display: flex; justify-content: space-between; font-size: 0.9rem; }
+    .task-label { color: var(--secondary); font-weight: 600; }
+    .task-value { color: #fff; text-align: right; }
+
+    .btn-delete-mobile {
+      width: 100%; margin-top: 10px; padding: 12px;
+      background: rgba(239,68,68,0.2); color: #f87171;
+      border: 1px solid rgba(239,68,68,0.3); border-radius: 10px;
+      font-weight: 700; cursor: pointer;
+    }
+  }
+
+  /* --- STYLE DES TÂCHES EN TABLEAU (PC) --- */
+  @media (min-width: 769px) {
+    .mobile-tasks-list { display: none; }
+    .tasks-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+  }
+</style>
+
+<section class="section">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+    <h1 style="font-size:2rem; font-weight:800; margin:0;">Programmateur de Tâches</h1>
+    <a href="{{ url_for('dashboard') }}" class="btn sync-btn" style="width:auto; margin:0;">← Retour</a>
+  </div>
+
+  <div class="card" style="margin-bottom:50px; border:1px solid rgba(99, 102, 241, 0.3); padding: 30px; background: rgba(15, 23, 42, 0.4);">
+    <h3 style="margin-top:0; color:#fff; margin-bottom: 25px; font-size:1.4rem;">Tâche Automatique</h3>
+    
+    <form method="post" action="{{ url_for('scheduler_create') }}" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:25px; align-items:end;">
+      
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">SUR QUEL SERVEUR ?</label>
+        <select name="guild_discord_id" id="guildSelect" class="input-pill" required>
+          <option value="" disabled selected>Choisir un serveur</option>
+          {% if guilds %}
+            {% for g in guilds %}
+              <option value="{{ g.discord_id }}">{{ g.name }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUEL BOT ?</label>
+        <select name="bot_key" class="input-pill" required>
+          <option value="" disabled selected>Choisir un bot</option>
+          <option value="deadpool">Deadpool</option>
+          <option value="yoda">Yoda</option>
+          <option value="cartman">Cartman</option>
+          <option value="homer">Homer</option>
+        </select>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUELLE ACTION ?</label>
+        <select name="task_type" id="taskTypeSelect" class="input-pill" required>
+          <option value="" disabled selected>Choisir une action</option>
+          <option value="news">News (Flux RSS)</option>
+          <option value="meteo">Météo</option>
+          <option value="meme">Meme Aléatoire</option>
+        </select>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;" id="paramBox">
+        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;" id="paramLabel">DÉTAIL</label>
+        <input type="text" name="task_param" id="paramInputText" class="input-pill" placeholder="Ex: Paris" style="display:none;">
+        <select name="task_param" id="paramInputSelect" class="input-pill" style="display:none;">
+          <option value="gaming">Gaming</option>
+          <option value="crypto">Crypto</option>
+          <option value="tech">Tech / Geek</option>
+          <option value="world">Actualité Monde</option>
+        </select>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">JOUR</label>
+        <select name="day_of_week" class="input-pill" required>
+          <option value="" disabled selected>Choisir le jour</option>
+          <option value="monday">Lundi</option>
+          <option value="tuesday">Mardi</option>
+          <option value="wednesday">Mercredi</option>
+          <option value="thursday">Jeudi</option>
+          <option value="friday">Vendredi</option>
+          <option value="saturday">Samedi</option>
+          <option value="sunday">Dimanche</option>
+        </select>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">HEURE (FRANCE)</label>
+        <input type="time" name="time_of_day" value="00:00" class="input-pill" required>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">SALON DISCORD</label>
+        <select name="channel_id" id="channelSelect" class="input-pill" required>
+          <option value="" disabled selected>Choisir serveur d'abord</option>
+        </select>
+        <div id="channelLoading" style="display:none; font-size:0.8rem; color:var(--accent); margin-left:15px;">Chargement des salons...</div>
+      </div>
+
+      <button type="submit" class="btn-scheduler-hero" 
+              style="justify-content:center; height:50px; margin-top:10px; border-radius:50px; 
+                     background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                     box-shadow: 0 4px 20px rgba(16, 185, 129, 0.5); border:1px solid rgba(255,255,255,0.2);
+                     font-size:1rem; letter-spacing:1px;">
+        PLANIFIER LA TÂCHE
+      </button>
+    </form>
+  </div>
+
+  <h3 style="margin-left:10px; color:#fff;">Tâches actives</h3>
+  
+  <div class="card" style="padding:0; border-radius:20px; overflow:hidden; display:block;" class="desktop-view">
+    <table class="tasks-table">
+      <thead style="background:rgba(255,255,255,0.03); text-align:left;">
+        <tr>
+          <th style="padding:20px; color:var(--secondary);">Bot</th>
+          <th style="padding:20px; color:var(--secondary);">Action</th>
+          <th style="padding:20px; color:var(--secondary);">Détail</th>
+          <th style="padding:20px; color:var(--secondary);">Serveur</th>
+          <th style="padding:20px; color:var(--secondary);">Quand ?</th>
+          <th style="padding:20px; color:var(--secondary);">Salon</th>
+          <th style="padding:20px; text-align:right; color:var(--secondary);">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for t in tasks %}
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:20px;"><span style="font-weight:bold; text-transform:capitalize; color:#fff;">{{ t.bot_key }}</span></td>
+          <td style="padding:20px;">
+            {% if t.task_type == 'news' %}<span class="chip" style="background:rgba(88,101,242,0.2); color:#5865F2; padding:5px 10px; border-radius:20px; font-size:0.85rem; font-weight:700;">📰 News</span>
+            {% elif t.task_type == 'meteo' %}<span class="chip" style="background:rgba(52,211,153,0.2); color:#34d399; padding:5px 10px; border-radius:20px; font-size:0.85rem; font-weight:700;">☁️ Météo</span>
+            {% else %}<span class="chip" style="background:rgba(255,255,255,0.1); padding:5px 10px; border-radius:20px; font-size:0.85rem;">{{ t.task_type }}</span>{% endif %}
+          </td>
+          <td style="padding:20px; color:#cbd5e1;">{{ t.task_param|capitalize if t.task_param else '-' }}</td>
+          <td style="padding:20px; font-weight:600;">{% if t.guild %}{{ t.guild.name }}{% else %}<span style="color:#ef4444;">Inconnu</span>{% endif %}</td>
+          <td style="padding:20px;">
+            <span style="color:#fff;">{{ t.day_of_week|capitalize }}</span> 
+            <span style="color:var(--secondary);">à {{ t.time_of_day }}</span>
+          </td>
+          <td style="padding:20px; font-family:monospace; color:var(--secondary);">{{ t.channel_id }}</td>
+          <td style="padding:20px; text-align:right;">
+            <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}" style="display:inline;">
+              <button style="background:rgba(239,68,68,0.2); color:#f87171; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; transition:0.2s;" onmouseover="this.style.background='#ef4444';this.style.color='white'" onmouseout="this.style.background='rgba(239,68,68,0.2)';this.style.color='#f87171'">Supprimer</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" style="padding:50px; text-align:center; color:var(--secondary); font-style:italic;">Aucune tâche programmée.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    
+    <div class="mobile-tasks-list">
+      {% for t in tasks %}
+      <div class="task-card">
+        <div class="task-card-header">
+            <span class="task-bot-name">{{ t.bot_key }}</span>
+            {% if t.task_type == 'news' %}<span style="color:#5865F2; font-weight:bold;">📰 News</span>
+            {% elif t.task_type == 'meteo' %}<span style="color:#34d399; font-weight:bold;">☁️ Météo</span>
+            {% else %}<span style="color:white;">{{ t.task_type }}</span>{% endif %}
+        </div>
+        
+        <div class="task-row">
+            <span class="task-label">Détail</span>
+            <span class="task-value">{{ t.task_param|capitalize if t.task_param else '-' }}</span>
+        </div>
+        <div class="task-row">
+            <span class="task-label">Serveur</span>
+            <span class="task-value">{% if t.guild %}{{ t.guild.name }}{% else %}Inconnu{% endif %}</span>
+        </div>
+        <div class="task-row">
+            <span class="task-label">Quand ?</span>
+            <span class="task-value" style="color:var(--accent);">{{ t.day_of_week|capitalize }} à {{ t.time_of_day }}</span>
+        </div>
+        
+        <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}">
+            <button class="btn-delete-mobile">SUPPRIMER</button>
+        </form>
+      </div>
+      {% else %}
+         <div style="text-align:center; padding:30px; color:var(--secondary);">Aucune tâche.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const typeSelect = document.getElementById("taskTypeSelect");
+    const paramBox = document.getElementById("paramBox");
+    const paramLabel = document.getElementById("paramLabel");
+    const paramInputText = document.getElementById("paramInputText");
+    const paramInputSelect = document.getElementById("paramInputSelect");
+
+    function updateFields() {
+        const val = typeSelect.value;
+        paramBox.style.display = "none";
+        paramInputText.style.display = "none";
+        paramInputSelect.style.display = "none";
+        paramInputText.removeAttribute("name");
+        paramInputSelect.removeAttribute("name");
+
+        if (val === "news") {
+            paramBox.style.display = "flex";
+            paramLabel.innerText = "CATÉGORIE NEWS";
+            paramInputSelect.style.display = "block";
+            paramInputSelect.setAttribute("name", "task_param");
+        } else if (val === "meteo") {
+            paramBox.style.display = "flex";
+            paramLabel.innerText = "VILLE";
+            paramInputText.style.display = "block";
+            paramInputText.setAttribute("name", "task_param");
+        }
+    }
+    typeSelect.addEventListener("change", updateFields);
+    updateFields();
+
+    const guildSelect = document.getElementById("guildSelect");
+    const channelSelect = document.getElementById("channelSelect");
+    const channelLoading = document.getElementById("channelLoading");
+
+    guildSelect.addEventListener("change", function() {
+        const guildId = this.value;
+        if (!guildId) return;
+        channelSelect.innerHTML = '<option disabled selected>Chargement...</option>';
+        channelSelect.disabled = true;
+        channelLoading.style.display = "block";
+        fetch('/api/discord/channels/' + guildId)
+            .then(response => response.json())
+            .then(data => {
+                channelSelect.innerHTML = '';
+                if (data.length === 0) {
+                    channelSelect.innerHTML = '<option disabled>Aucun salon trouvé</option>';
+                } else {
+                    data.forEach(channel => {
+                        const option = document.createElement('option');
+                        option.value = channel.id;
+                        option.textContent = '#' + channel.name;
+                        channelSelect.appendChild(option);
+                    });
+                }
+                channelSelect.disabled = false;
+                channelLoading.style.display = "none";
+            })
+            .catch(err => {
+                console.error(err);
+                channelSelect.innerHTML = '<option disabled>Erreur de chargement</option>';
+                channelLoading.style.display = "none";
+            });
+    });
+});
+</script>
+{% endblock %}

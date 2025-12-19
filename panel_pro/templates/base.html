@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>4U BOT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
+  
+  <link rel="icon" href="{{ url_for('static', filename='4_U_BOT.jpg') }}" type="image/jpeg">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='4_U_BOT.jpg') }}" type="image/jpeg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <style>
+    :root {
+      --primary: #ffffff;
+      --secondary: #cbd5e1;
+      --accent: #6366f1;
+      --glass-bg: rgba(15, 23, 42, 0.85); 
+      --glass-border: rgba(255, 255, 255, 0.1);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    /* FOND D'ÉCRAN FIXE */
+    .bg-fixed {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -5;
+        background-image: url("{{ url_for('static', filename='background.jpg') }}");
+        background-size: cover; background-position: center; background-repeat: no-repeat;
+    }
+    .bg-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -4;
+        background: rgba(15, 23, 42, 0.75); pointer-events: none;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Outfit', sans-serif;
+      color: var(--primary);
+      background-color: #0f172a; 
+      display: flex;
+      height: 100vh; 
+      overflow: hidden; 
+    }
+
+    a { text-decoration: none; color: inherit; transition: 0.2s; }
+
+    /* --- SIDEBAR (PC) --- */
+    .sidebar {
+      width: 300px;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--glass-border);
+      display: flex; flex-direction: column;
+      padding: 30px;
+      flex-shrink: 0;
+      z-index: 100;
+      height: 100%;
+      overflow-y: auto; 
+    }
+    .sidebar::-webkit-scrollbar { width: 0; background: transparent; }
+
+    .brand { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border); flex-shrink: 0; }
+    .brand-logo { width: 70px; height: 70px; border-radius: 18px; object-fit: cover; border: 2px solid rgba(255,255,255,0.1); }
+    .brand-title { font-weight: 800; font-size: 1.8rem; }
+    .brand-subtitle { font-size: 0.8rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 2px; }
+    
+    .nav-menu { display: flex; flex-direction: column; gap: 5px; flex-grow: 1; }
+    .nav-item { padding: 12px 16px; border-radius: 10px; color: var(--secondary); font-weight: 600; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+    .nav-item.active { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+    .nav-item i { font-size: 1.3rem; } 
+
+    .user-section-wrapper { margin-top: auto; display: flex; flex-direction: column; gap: 15px; flex-shrink: 0; padding-top: 20px; }
+    .sync-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 10px; font-weight: 600; cursor: pointer; }
+    .user-card { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--glass-border); }
+    .user-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+    .logout-link { color: #f87171; font-size: 0.8rem; background: none; border: none; padding: 10px 0; cursor: pointer; font-weight: 600; text-align: left; }
+
+    /* --- MAIN CONTENT (PC) --- */
+    .main-wrapper { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .main-content { flex: 1; overflow-y: auto; padding: 40px; position: relative; }
+    .footer { padding: 20px; text-align: center; color: var(--secondary); font-size: 0.8rem; border-top: 1px solid var(--glass-border); }
+
+    /* UTILS */
+    .card { background: rgba(30, 41, 59, 0.7); border: 1px solid var(--glass-border); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; font-size: 0.9rem; }
+    .flash { padding: 15px; border-radius: 10px; margin-bottom: 15px; font-weight: 600; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); }
+    .flash.ok { border-left: 4px solid #10b981; color: #10b981; }
+    .flash.error { border-left: 4px solid #ef4444; color: #ef4444; }
+
+    .mobile-header { display: none; }
+    .overlay { display: none; }
+
+    /* --- MOBILE RESPONSIVE --- */
+    @media (max-width: 1200px) {
+      body { 
+        flex-direction: column; 
+        height: auto;      
+        min-height: 100vh;
+        overflow-y: auto !important; 
+        overflow-x: hidden;
+      }
+      
+      .mobile-header { 
+        display: flex; height: 60px; 
+        background: #0f172a; 
+        align-items: center; justify-content: space-between; 
+        padding: 0 20px; border-bottom: 1px solid var(--glass-border); 
+        position: fixed; top: 0; left: 0; right: 0; z-index: 500; 
+        padding-top: env(safe-area-inset-top);
+        height: calc(60px + env(safe-area-inset-top));
+      }
+      
+      .sidebar { 
+        position: fixed; top: 0; bottom: 0; left: 0; 
+        width: 280px; 
+        background: #0f1220; 
+        transform: translateX(-100%); 
+        transition: transform 0.3s ease;
+        z-index: 1000;
+        height: 100vh; 
+        overflow-y: auto !important; 
+        -webkit-overflow-scrolling: touch;
+        padding-top: calc(80px + env(safe-area-inset-top)); 
+        padding-bottom: 150px; 
+      }
+      .sidebar.open { transform: translateX(0); box-shadow: 100px 0 0 rgba(0,0,0,0.5); }
+
+      .overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.8); z-index: 900;
+        display: none; backdrop-filter: blur(4px);
+      }
+      .overlay.show { display: block; }
+
+      .main-wrapper { 
+        height: auto; overflow: visible !important;
+        flex: none; display: block;
+        padding-top: calc(60px + env(safe-area-inset-top)); 
+      } 
+      
+      .main-content { padding: 20px; overflow: visible !important; height: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-fixed"></div>
+  <div class="bg-overlay"></div>
+  <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+  <header class="mobile-header">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <img src="{{ url_for('static', filename='4_U_BOT.jpg') }}" style="width:32px; height:32px; border-radius:8px;">
+      <span style="font-weight:800; font-size:1.1rem;">4U BOT</span>
+    </div>
+    <button onclick="toggleMenu()" style="background:none; border:none; font-size:28px; color:white;">
+      <i class="ph ph-list"></i>
+    </button>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="{{ url_for('static', filename='4_U_BOT.jpg') }}" class="brand-logo" alt="Logo">
+      <div class="brand-text-group">
+        <div class="brand-title">4U BOT</div>
+        <div class="brand-subtitle">Manager</div>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <a href="{{ url_for('dashboard') }}" class="nav-item {{ 'active' if request.endpoint == 'dashboard' else '' }}">
+        <i class="ph ph-squares-four"></i> Tableau de bord
+      </a>
+      <a href="{{ url_for('scheduler_list') }}" class="nav-item {{ 'active' if 'scheduler' in request.endpoint else '' }}">
+        <i class="ph ph-calendar-plus"></i> Programmateur
+      </a>
+      
+      {% if session.get('admin_guild_ids') and dev_mode %}
+      <div style="margin:10px 0; border-top:1px solid rgba(255,255,255,0.1);"></div>
+      <a href="/admin" class="nav-item {{ 'active' if 'admin' in request.endpoint else '' }}">
+        <i class="ph ph-lightning"></i> Zone Admin
+      </a>
+      {% endif %}
+    </nav>
+
+    <div class="user-section-wrapper">
+      <a href="{{ url_for('guilds_sync') }}" class="sync-btn">
+        <i class="ph ph-arrows-clockwise"></i> Sync Serveurs
+      </a>
+
+      {% if session.get('user') %}
+        <div class="user-card">
+          {% if session.user.get('avatar_hash') %}
+            <img src="https://cdn.discordapp.com/avatars/{{ session.user.discord_id }}/{{ session.user.avatar_hash }}.png?size=64" class="user-avatar" alt="Avatar">
+          {% else %}
+            <div style="width:38px;height:38px;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;">
+              {{ session.user.username[:1] }}
+            </div>
+          {% endif %}
+          
+          <div style="display:flex; flex-direction:column; overflow:hidden;">
+            <span style="font-weight:700; font-size:0.9rem;">{{ session.user.username }}</span>
+            <form action="{{ url_for('logout_discord') }}" method="post">
+              <button class="logout-link" onclick="localStorage.removeItem('last_active_url');">Se déconnecter</button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <a href="{{ url_for('login_discord') }}" class="sync-btn" style="background:var(--accent); color:white; border:none; display:flex; gap:10px; align-items:center;">
+           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 127 96">
+             <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.15,105.15,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.11,77.11,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a45.57,45.57,0,0,0,65.18,0c.86.66,1.75,1.34,2.66,2a68.42,68.42,0,0,1-10.87,5.18,77.11,77.11,0,0,0,6.89,11.11A105.73,105.73,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
+           </svg>
+           Connexion
+        </a>
+      {% endif %}
+    </div>
+  </aside>
+
+  <div class="main-wrapper">
+    <main class="main-content">
+      <div class="flash-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+      </div>
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      © 2025 4U BOT — Hébergé par <a href="#">darthsaie</a>
+      <span style="margin: 0 8px; opacity: 0.5;">|</span>
+      <a href="{{ url_for('privacy_policy') }}">Politique de confidentialité</a>
+    </footer>
+  </div>
+
+  <script>
+    function toggleMenu() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('show');
+    }
+
+    (function() {
+      var lastUrl = localStorage.getItem('last_active_url');
+      var lastTs = localStorage.getItem('last_active_ts');
+      var now = Date.now();
+      var currentPath = window.location.pathname;
+
+      if ((currentPath === '/' || currentPath === '/login') && lastUrl && lastUrl !== window.location.href) {
+          if (lastTs && (now - lastTs) < 15000) {
+              window.location.replace(lastUrl);
+              return; 
+          }
+      }
+      if (currentPath !== '/logout') {
+          localStorage.setItem('last_active_url', window.location.href);
+          localStorage.setItem('last_active_ts', now);
+      }
+    })();
+  </script>
+</body>
+</html>

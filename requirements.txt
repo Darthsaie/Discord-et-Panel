@@ -1,0 +1,8 @@
+discord.py
+openai
+python-dotenv
+aiohttp
+flask
+sqlalchemy
+psycopg2-binary
+stripe>=5,<6
