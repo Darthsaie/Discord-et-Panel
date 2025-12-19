@@ -14,7 +14,12 @@ load_dotenv()
 #   ENV & CONFIG
 # =========================
 SECRET_KEY       = os.getenv("SECRET_KEY", secrets.token_hex(16))
-PANEL_API_TOKEN  = os.getenv("PANEL_API_TOKEN", "change_me_please")
+
+# CORRECTION SÉCURITÉ : Pas de valeur par défaut pour le token critique
+PANEL_API_TOKEN = os.getenv("PANEL_API_TOKEN")
+if not PANEL_API_TOKEN:
+    raise ValueError("CRITICAL: PANEL_API_TOKEN is missing from .env configuration!")
+
 DATABASE_URL     = os.getenv("DATABASE_URL", "sqlite:////app/panel.db")
 TRIAL_DAYS       = int(os.getenv("TRIAL_DAYS", "5"))
 DEV_MODE         = os.getenv("DEV_MODE", "1") == "1"
@@ -687,16 +692,43 @@ def make_app():
         oauth = f"https://discord.com/api/oauth2/authorize?client_id={cid}&permissions=2147483648&scope=bot&guild_id={guild_id}&disable_guild_select=true"
         return redirect(oauth)
 
+    # API CONFIG SECURISÉE (Vérifie la date de fin même si 'active')
     @app.get("/api/bot/config/<bot_key>")
     def api_bot_config(bot_key):
         if request.args.get("token") != PANEL_API_TOKEN: return jsonify({"error": "unauthorized"}), 401
+        
         now = dt.datetime.utcnow()
         allowed = []
+        
         with Session(app.engine) as db:
             for s in db.scalars(select(Subscription)).all():
                 if s.bot_type.key == bot_key:
-                    if s.status in ("active", "lifetime") or (s.status == "trial" and s.trial_until and s.trial_until > now):
+                    is_allowed = False
+                    
+                    # 1. Cas VIP / A vie
+                    if s.status == "lifetime":
+                        is_allowed = True
+                        
+                    # 2. Cas Essai (Trial)
+                    elif s.status == "trial":
+                        if s.trial_until and s.trial_until > now:
+                            is_allowed = True
+                            
+                    # 3. Cas Abonnement Actif (Stripe)
+                    elif s.status == "active":
+                        # SÉCURITÉ : Vérifier date de fin si présente
+                        if s.current_period_end:
+                            # Marge de 2 jours
+                            marge = s.current_period_end + dt.timedelta(days=2)
+                            if marge > now:
+                                is_allowed = True
+                        else:
+                            # Actif manuel sans date
+                            is_allowed = True
+
+                    if is_allowed:
                         allowed.append(int(s.guild.discord_id))
+                        
         return jsonify({"bot_key": bot_key, "allowed_guild_ids": allowed})
         
     @app.get("/api/bot/tasks/<bot_key>")
@@ -854,6 +886,7 @@ def make_app():
             locks = db.scalars(select(TrialLock).order_by(TrialLock.id.desc())).all()
         return render_template("admin_subs.html", subs=subs, locks=locks)
 
+    # CREATION MANUELLE (CORRIGÉE : Prend en compte les jours pour l'Actif)
     @app.post("/admin/subs/create")
     @admin_required
     def admin_create_sub():
@@ -861,6 +894,10 @@ def make_app():
         guild_id = (request.form.get("guild_discord_id") or "").strip()
         guild_name = (request.form.get("guild_name") or "").strip()
         
+        # On récupère le nombre de jours saisi (0 par défaut)
+        try: days = int(request.form.get("days", "0"))
+        except: days = 0
+
         st = (request.form.get("status") or "active").strip().lower()
         if st not in ("active", "trial", "canceled", "lifetime"): return redirect(url_for("admin_subs"))
         
@@ -879,13 +916,26 @@ def make_app():
             if not s: s = Subscription(guild_id=g.id, bot_type_id=b.id); db.add(s)
             
             s.status = st
-            if st == "trial": s.trial_until = dt.datetime.utcnow() + dt.timedelta(days=TRIAL_DAYS)
-            else: s.trial_until = None
-            if st == "active": s.current_period_end = None # Force manuel
+            
+            # Gestion ESSAI
+            if st == "trial": 
+                d = days if days > 0 else TRIAL_DAYS
+                s.trial_until = dt.datetime.utcnow() + dt.timedelta(days=d)
+            else: 
+                s.trial_until = None
+            
+            # Gestion ACTIF
+            if st == "active":
+                if days > 0:
+                    s.current_period_end = dt.datetime.utcnow() + dt.timedelta(days=days)
+                    s.cancel_at_period_end = True 
+                else:
+                    s.current_period_end = None 
+            
             db.commit()
         return redirect(url_for("admin_subs"))
 
-    # --- VERSION ROBUSTE DE SYNC STRIPE ---
+    # SYNC STRIPE (CORRIGÉE : Lecture plus directe avec debug)
     @app.post("/admin/subs/sync_stripe/<int:sub_id>")
     @admin_required
     def admin_sync_stripe(sub_id: int):
@@ -899,29 +949,45 @@ def make_app():
             
             try:
                 q = f"metadata['bot_key']:'{s.bot_type.key}' AND metadata['guild_id']:'{s.guild.discord_id}'"
+                print(f"[DEBUG] Recherche Stripe: {q}")
+                
                 res = stripe.Subscription.search(query=q, limit=1)
                 items = getattr(res, "data", []) or []
                 found_summary = items[0] if items else None
                 
                 if found_summary:
-                    full_sub = stripe.Subscription.retrieve(found_summary.get("id"))
-                    st = full_sub.get("status", "canceled")
-                    new_status = "active" if st in ("active", "trialing", "past_due") else "canceled"
-                    new_cancel = full_sub.get("cancel_at_period_end", False)
+                    sub_id_stripe = found_summary.get("id")
+                    print(f"[DEBUG] Abonnement trouvé ID: {sub_id_stripe}")
+                    
+                    full_sub = stripe.Subscription.retrieve(sub_id_stripe)
+                    
+                    # LOGS BRUTAL pour voir ce qui se passe
+                    print(f"[DEBUG] Full Sub Object Keys: {full_sub}")
+
+                    # Lecture directe avec fallback (compatible v5+)
+                    st = full_sub.get("status")
                     ts = full_sub.get("current_period_end")
+                    cancel_at_end = full_sub.get("cancel_at_period_end", False)
+                    
+                    print(f"[DEBUG] Valeurs extraites -> Status: {st} | Timestamp: {ts}")
+
+                    new_status = "active" if st in ("active", "trialing", "past_due") else "canceled"
                     new_date = dt.datetime.utcfromtimestamp(ts) if ts else None
 
                     stmt = (
                         update(Subscription)
                         .where(Subscription.id == sub_id)
-                        .values(status=new_status, cancel_at_period_end=new_cancel, current_period_end=new_date)
+                        .values(status=new_status, cancel_at_period_end=cancel_at_end, current_period_end=new_date)
                     )
                     db.execute(stmt)
                     db.commit()
+                    
                     flash(f"Sync OK: Status={new_status} | Date={new_date}", "ok")
                 else:
+                    print("[DEBUG] Aucun abonnement trouvé avec ces métadonnées.")
                     flash("Aucun abonnement Stripe trouvé.", "warn")
             except Exception as e:
+                print(f"[DEBUG] ERREUR CRITIQUE: {e}")
                 flash(f"Erreur: {e}", "error")
         return redirect(url_for("admin_subs"))
 
