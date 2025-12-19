@@ -8,7 +8,11 @@ import asyncio
 from discord import app_commands
 from discord.ext import tasks
 from shared.bot_core import UltimateBot
-from shared.debate import run_debate # <--- IMPORT DU MODE DÉBAT
+
+# --- IMPORTS DES FONCTIONNALITÉS ---
+from shared.debate import run_debate 
+from shared.quiz import start_quiz, check_answer, get_top_scores
+from shared.recap import generate_recap 
 
 # --- CONFIGURATION API ---
 PANEL_API_URL = "http://bots-panel:5000/api/bot/tasks" 
@@ -23,7 +27,6 @@ RSS_MAP = {
 }
 
 # --- FONCTIONS UTILITAIRES ---
-
 def get_real_weather(city):
     if not city: city = "Paris"
     city_clean = city.strip().lower().title() 
@@ -56,76 +59,87 @@ def get_real_news(category):
     return None
 
 def get_random_meme():
-    # 1. TENTATIVE FR (Priorité)
     subreddits_fr = ['rance', 'moi_dlvv', 'FrenchMemes']
     try:
         choix = random.choice(subreddits_fr)
-        # Timeout court pour ne pas bloquer si le sub FR répond mal
         r = requests.get(f"https://meme-api.com/gimme/{choix}", timeout=2)
-        
         if r.status_code == 200:
             data = r.json()
             if not data.get("nsfw", False) and data.get("url"):
-                return {
-                    "title": data["title"], 
-                    "image": data["url"], 
-                    "author": data["author"], 
-                    "subreddit": data["subreddit"]
-                }
-    except Exception as e:
-        print(f"⚠️ Echec Meme FR (Passage au backup): {e}")
-
-    # 2. PLAN B (Backup International)
+                return {"title": data["title"], "image": data["url"], "author": data["author"], "subreddit": data["subreddit"]}
+    except: pass
     try:
         r = requests.get("https://meme-api.com/gimme", timeout=4)
         if r.status_code == 200:
             data = r.json()
             if not data.get("nsfw", False):
-                return {
-                    "title": data["title"], 
-                    "image": data["url"], 
-                    "author": data["author"], 
-                    "subreddit": data["subreddit"]
-                }
+                return {"title": data["title"], "image": data["url"], "author": data["author"], "subreddit": data["subreddit"]}
     except: pass
-    
     return None
 
 # --- CLASSE SUPRÊME ---
 class BotWithFeatures(UltimateBot):
-    def __init__(self, bot_key, token_env_var, system_prompt, persona_name):
+    def __init__(self, bot_key, token_env_var, system_prompt, persona_name, initial_activity=None):
         super().__init__(bot_key=bot_key, token_env_var=token_env_var, system_prompt=system_prompt)
         self.persona_name = persona_name
+        self.initial_activity = initial_activity
         self.last_run_minute = None
 
     async def setup_hook(self):
         await super().setup_hook()
         self.add_feature_commands()
-        print(f"💀 [{self.persona_name.upper()}] Features & Scheduler activés.")
+        
+        # Statut
+        if self.initial_activity:
+            await self.change_presence(activity=discord.Game(name=self.initial_activity))
+            
+        # --- AUTO-SYNC FORCÉ ---
+        # Plus besoin de faire !sync à la main
+        self.loop.create_task(self.startup_sync())
+
+        print(f"💀 [{self.persona_name.upper()}] Features, Scheduler & Activity activés.")
         self.scheduler_loop.start()
+
+    async def startup_sync(self):
+        await self.wait_until_ready()
+        # On copie les commandes globales sur chaque serveur visible pour une update immédiate
+        print("🔄 Début de l'Auto-Sync des commandes...")
+        for guild in self.guilds:
+            try:
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+                print(f"  ✅ Commandes synchronisées pour : {guild.name}")
+            except Exception as e:
+                print(f"  ❌ Erreur sync {guild.name}: {e}")
+        print("✅ Auto-Sync terminé !")
+
+    # --- ÉCOUTE DES MESSAGES ---
+    async def on_message(self, message):
+        if message.author.bot: return
+        
+        # 1. Vérification réponse Quiz
+        is_quiz_resp = await check_answer(message, self.openai_client, self.persona_name)
+        if is_quiz_resp: return 
+
+        # 2. Comportement standard
+        await super().on_message(message)
 
     # --- IA PERSONNALISÉE ---
     async def generate_persona_text(self, context_text, context_type):
         try:
             sys_prompt = f"Tu es {self.persona_name}. "
-            if context_type == "news":
-                sys_prompt += "Présente cette news en une phrase courte, drôle et percutante en français. Finis ta phrase."
-            elif context_type == "meteo":
-                sys_prompt += "Présente la météo en une seule phrase drôle ou cynique en français. Finis ta phrase."
-            elif context_type == "meme":
-                sys_prompt += "Réagis à ce meme en une phrase courte en français."
+            if context_type == "news": sys_prompt += "Présente cette news en une phrase courte, drôle et percutante en français."
+            elif context_type == "meteo": sys_prompt += "Présente la météo en une seule phrase drôle ou cynique en français."
+            elif context_type == "meme": sys_prompt += "Réagis à ce meme en une phrase courte en français."
             
             response = self.openai_client.chat.completions.create(
                 model=self.openai_model,
                 messages=[{"role": "system", "content": sys_prompt}, {"role": "user", "content": context_text}],
-                temperature=0.8,
-                max_tokens=150
+                temperature=0.8, max_tokens=150
             )
             return response.choices[0].message.content.strip()
-        except:
-            return f"🤖 **Info** (Mon IA dort)."
+        except: return f"🤖 **Info** (Mon IA dort)."
 
-    # --- ENVOI DE MESSAGE ---
     async def send_feature_message(self, channel, feature_type, param=None):
         try:
             if feature_type == 'news':
@@ -137,23 +151,16 @@ class BotWithFeatures(UltimateBot):
                     embed.set_image(url=news['image'])
                     embed.set_footer(text=f"{self.persona_name} News | {cat.upper()}")
                     await channel.send(f"🎙️ **{intro}**", embed=embed)
-                else:
-                    await channel.send("❌ Impossible de récupérer les news.")
-            
             elif feature_type == 'meteo':
                 city = param if param else 'Paris'
                 weather = get_real_weather(city)
                 if weather:
                     ctx = f"Ville: {weather['city']}. Ciel: {weather['desc']}. Température: {weather['temp']}°C."
                     intro = await self.generate_persona_text(ctx, "meteo")
-                    
                     embed = discord.Embed(title=f"☁️ Météo : {weather['city']}", color=0xFFA500)
                     embed.add_field(name="🌡️ Temp", value=f"**{weather['temp']}°C**", inline=True)
                     embed.add_field(name="👀 Ciel", value=f"{weather['desc'].capitalize()}", inline=True)
                     await channel.send(f"🎙️ **{intro}**", embed=embed)
-                else:
-                    await channel.send(f"❌ Ville **{city}** introuvable.")
-
             elif feature_type == 'meme':
                 meme = get_random_meme()
                 if meme:
@@ -162,11 +169,7 @@ class BotWithFeatures(UltimateBot):
                     embed.set_image(url=meme['image'])
                     embed.set_footer(text=f"Via r/{meme['subreddit']}")
                     await channel.send(f"😂 **{intro}**", embed=embed)
-                else:
-                    await channel.send(f"🚫 Pas de meme dispo.")
-                    
-        except Exception as e:
-            print(f"Erreur d'envoi : {e}")
+        except Exception as e: print(f"Erreur d'envoi : {e}")
 
     # --- COMMANDES SLASH ---
     def add_feature_commands(self):
@@ -193,36 +196,38 @@ class BotWithFeatures(UltimateBot):
                 await self.send_feature_message(interaction.channel, 'meme')
                 await interaction.followup.send("✅", ephemeral=True)
 
-        # --- NOUVELLE COMMANDE DÉBAT ---
         @self.tree.command(name="debat", description="Lancer un débat entre deux bots")
-        @app_commands.describe(sujet="Le thème du débat", bot1="Premier combattant", bot2="Deuxième combattant")
-        @app_commands.choices(bot1=[
-            app_commands.Choice(name="Homer", value="homer"),
-            app_commands.Choice(name="Cartman", value="cartman"),
-            app_commands.Choice(name="Deadpool", value="deadpool"),
-            app_commands.Choice(name="Yoda", value="yoda")
-        ], bot2=[
-            app_commands.Choice(name="Homer", value="homer"),
-            app_commands.Choice(name="Cartman", value="cartman"),
-            app_commands.Choice(name="Deadpool", value="deadpool"),
-            app_commands.Choice(name="Yoda", value="yoda")
-        ])
+        @app_commands.describe(sujet="Le thème du débat", bot1="Combattant 1", bot2="Combattant 2")
+        @app_commands.choices(bot1=[app_commands.Choice(name=k.capitalize(), value=k) for k in ["homer","cartman","deadpool","yoda"]], 
+                              bot2=[app_commands.Choice(name=k.capitalize(), value=k) for k in ["homer","cartman","deadpool","yoda"]])
         async def slash_debat(interaction: discord.Interaction, sujet: str, bot1: app_commands.Choice[str], bot2: app_commands.Choice[str]):
-            # Vérification de sécurité (abonnement serveur)
             if await self.check_access(interaction):
-                await interaction.response.defer() # Important car le débat est long
-                
-                # On lance le débat
-                # Note : on passe 'self.openai_client' et 'self.openai_model' qui viennent de UltimateBot
-                await run_debate(
-                    interaction=interaction,
-                    client=self.openai_client,
-                    model_name=self.openai_model,
-                    topic=sujet,
-                    bot1_key=bot1.value,
-                    bot2_key=bot2.value,
-                    rounds=3 # Nombre d'échanges (3 aller-retours)
-                )
+                await interaction.response.defer()
+                await run_debate(interaction, self.openai_client, self.openai_model, sujet, bot1.value, bot2.value)
+
+        # --- QUIZ ---
+        @self.tree.command(name="quiz", description="Lancer un quiz de culture générale")
+        async def slash_quiz(interaction: discord.Interaction):
+            if await self.check_access(interaction):
+                await interaction.response.defer()
+                await start_quiz(interaction, self.openai_client, self.persona_name)
+
+        @self.tree.command(name="classement", description="Voir le top des joueurs du Quiz")
+        async def slash_classement(interaction: discord.Interaction):
+            if await self.check_access(interaction):
+                top = get_top_scores()
+                txt = "**🏆 CLASSEMENT QUIZ**\n"
+                for i, (uid, score) in enumerate(top, 1):
+                    txt += f"{i}. <@{uid}> : **{score} pts**\n"
+                if not top: txt += "Aucun score pour l'instant."
+                await interaction.response.send_message(txt)
+
+        # --- RECAP ---
+        @self.tree.command(name="recap", description="Génère un Flash Info des dernières discussions")
+        async def slash_recap(interaction: discord.Interaction):
+            if await self.check_access(interaction):
+                await interaction.response.defer()
+                await generate_recap(interaction, self.openai_client, self.persona_name)
 
     # --- SCHEDULER ---
     @tasks.loop(seconds=10)
@@ -230,31 +235,20 @@ class BotWithFeatures(UltimateBot):
         now = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
         current_day = now.strftime("%A").lower()
         current_time = now.strftime("%H:%M")
-
         if current_time == self.last_run_minute: return
         self.last_run_minute = current_time
-
         try:
             url = f"{PANEL_API_URL}/{self.bot_key}"
             resp = requests.get(url, params={"token": PANEL_API_TOKEN}, timeout=3)
-            
             if resp.status_code == 200:
-                tasks_data = resp.json()
-                for t in tasks_data:
+                for t in resp.json():
                     guild_id = int(t.get('guild_discord_id', 0))
                     if not await self.is_allowed(guild_id): continue
-
-                    day_ok = (t['day_of_week'] == current_day) if t['day_of_week'] else True
-                    time_ok = (t['time_of_day'] == current_time)
-
-                    if day_ok and time_ok:
+                    if ((t['day_of_week'] == current_day) if t['day_of_week'] else True) and (t['time_of_day'] == current_time):
                         print(f"✅ [{self.persona_name}] Tâche {t['task_type']} détectée !")
                         channel = self.get_channel(int(t['channel_id']))
-                        if channel:
-                            await self.send_feature_message(channel, t['task_type'], t.get('task_param'))
-        except Exception as e:
-            print(f"❌ Erreur Scheduler : {e}")
-
+                        if channel: await self.send_feature_message(channel, t['task_type'], t.get('task_param'))
+        except Exception as e: print(f"❌ Erreur Scheduler : {e}")
+    
     @scheduler_loop.before_loop
-    async def before_scheduler(self):
-        await self.wait_until_ready()
+    async def before_scheduler(self): await self.wait_until_ready()
