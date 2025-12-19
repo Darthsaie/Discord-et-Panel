@@ -15,7 +15,6 @@ load_dotenv()
 # =========================
 SECRET_KEY       = os.getenv("SECRET_KEY", secrets.token_hex(16))
 
-# SÉCURITÉ CRITIQUE : Crash si le token n'est pas défini
 PANEL_API_TOKEN = os.getenv("PANEL_API_TOKEN")
 if not PANEL_API_TOKEN:
     raise ValueError("CRITICAL: PANEL_API_TOKEN is missing from .env configuration!")
@@ -878,13 +877,24 @@ def make_app():
     @admin_required
     def admin_index(): return redirect(url_for("admin_subs"))
 
+    # ==========================================
+    # CORRECTION CRITIQUE POUR LE DESIGN V3
+    # ==========================================
     @app.get("/admin/subs")
     @admin_required
     def admin_subs():
         with Session(app.engine) as db:
             subs = db.scalars(select(Subscription).options(selectinload(Subscription.guild),selectinload(Subscription.bot_type)).order_by(Subscription.id.desc())).all()
             locks = db.scalars(select(TrialLock).order_by(TrialLock.id.desc())).all()
-        return render_template("admin_subs.html", subs=subs, locks=locks)
+            
+            # --- AJOUTS V3 ---
+            bot_avatars = _get_bot_avatar_urls()
+            all_guilds = db.scalars(select(Guild)).all()
+            guild_map = {g.discord_id: g.name for g in all_guilds}
+            # -----------------
+
+        # On envoie bien bot_defs, bot_avatars et guild_map au template
+        return render_template("admin_subs.html", subs=subs, locks=locks, bot_defs=BOT_DEFS, bot_avatars=bot_avatars, guild_map=guild_map)
 
     # CREATION MANUELLE (CORRIGÉE : Prend en compte les jours pour l'Actif)
     @app.post("/admin/subs/create")
