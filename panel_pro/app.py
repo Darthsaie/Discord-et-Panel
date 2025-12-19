@@ -691,7 +691,9 @@ def make_app():
         oauth = f"https://discord.com/api/oauth2/authorize?client_id={cid}&permissions=2147483648&scope=bot&guild_id={guild_id}&disable_guild_select=true"
         return redirect(oauth)
 
-    # API CONFIG SECURISÉE (Vérifie la date de fin même si 'active')
+    # =========================================================================
+    #  MODIFICATION CRITIQUE : MODE CONFIANCE + GESTION CANCELED
+    # =========================================================================
     @app.get("/api/bot/config/<bot_key>")
     def api_bot_config(bot_key):
         if request.args.get("token") != PANEL_API_TOKEN: return jsonify({"error": "unauthorized"}), 401
@@ -713,22 +715,21 @@ def make_app():
                         if s.trial_until and s.trial_until > now:
                             is_allowed = True
                             
-                    # 3. Cas Abonnement Actif (Stripe)
+                    # 3. Cas Abonnement Actif (MODE CONFIANCE)
+                    # Si c'est marqué "active", on autorise TOUJOURS (pour éviter le blocage si la date est vieille à cause d'un webhook raté)
                     elif s.status == "active":
-                        # SÉCURITÉ : Vérifier date de fin si présente
-                        if s.current_period_end:
-                            # Marge de 2 jours
-                            marge = s.current_period_end + dt.timedelta(days=2)
-                            if marge > now:
-                                is_allowed = True
-                        else:
-                            # Actif manuel sans date
+                        is_allowed = True
+
+                    # 4. Cas Annulé mais période pas finie (Stripe "cancel_at_period_end")
+                    elif s.status == "canceled":
+                        if s.current_period_end and s.current_period_end > now:
                             is_allowed = True
 
                     if is_allowed:
                         allowed.append(int(s.guild.discord_id))
                         
         return jsonify({"bot_key": bot_key, "allowed_guild_ids": allowed})
+    # =========================================================================
         
     @app.get("/api/bot/tasks/<bot_key>")
     def api_bot_tasks(bot_key):
@@ -761,9 +762,7 @@ def make_app():
 
     @app.get("/login")
     def login_discord():
-        # On génère l'URL mais on ne redirige pas tout de suite
         url = oauth_authorize_url()
-        # On affiche la page "Bouncer" qui va essayer d'ouvrir l'app
         return render_template('auth_bouncer.html', auth_url=url)
 
     @app.get("/oauth/callback")
@@ -877,9 +876,6 @@ def make_app():
     @admin_required
     def admin_index(): return redirect(url_for("admin_subs"))
 
-    # ==========================================
-    # CORRECTION CRITIQUE POUR LE DESIGN V3
-    # ==========================================
     @app.get("/admin/subs")
     @admin_required
     def admin_subs():
@@ -887,135 +883,87 @@ def make_app():
             subs = db.scalars(select(Subscription).options(selectinload(Subscription.guild),selectinload(Subscription.bot_type)).order_by(Subscription.id.desc())).all()
             locks = db.scalars(select(TrialLock).order_by(TrialLock.id.desc())).all()
             
-            # --- AJOUTS V3 ---
             bot_avatars = _get_bot_avatar_urls()
             all_guilds = db.scalars(select(Guild)).all()
             guild_map = {g.discord_id: g.name for g in all_guilds}
-            # -----------------
 
-        # On envoie bien bot_defs, bot_avatars, guild_map ET NOW au template
         return render_template("admin_subs.html", subs=subs, locks=locks, bot_defs=BOT_DEFS, bot_avatars=bot_avatars, guild_map=guild_map, now=dt.datetime.utcnow())
 
-    # CREATION MANUELLE
     @app.post("/admin/subs/create")
     @admin_required
     def admin_create_sub():
         bot_key = (request.form.get("bot_key") or "").strip()
         guild_id = (request.form.get("guild_discord_id") or "").strip()
         guild_name = (request.form.get("guild_name") or "").strip()
-        
-        # On récupère le nombre de jours saisi (0 par défaut)
         try: days = int(request.form.get("days", "0"))
         except: days = 0
-
         st = (request.form.get("status") or "active").strip().lower()
         if st not in ("active", "trial", "canceled", "lifetime"): return redirect(url_for("admin_subs"))
-        
         with Session(app.engine) as db:
             g = db.scalar(select(Guild).where(Guild.discord_id == guild_id))
             if not g: 
                 g = Guild(discord_id=guild_id, name=guild_name if guild_name else f"Guild {guild_id}")
                 db.add(g); db.commit()
-            
             b = db.scalar(select(BotType).where(BotType.key == bot_key))
             if not b: 
                 b = BotType(key=bot_key, name=bot_key.capitalize())
                 db.add(b); db.commit()
-            
             s = db.scalar(select(Subscription).where((Subscription.guild_id==g.id) & (Subscription.bot_type_id==b.id)))
             if not s: s = Subscription(guild_id=g.id, bot_type_id=b.id); db.add(s)
-            
             s.status = st
-            
-            # Gestion ESSAI
             if st == "trial": 
                 d = days if days > 0 else TRIAL_DAYS
                 s.trial_until = dt.datetime.utcnow() + dt.timedelta(days=d)
             else: 
                 s.trial_until = None
-            
-            # Gestion ACTIF
             if st == "active":
                 if days > 0:
                     s.current_period_end = dt.datetime.utcnow() + dt.timedelta(days=days)
                     s.cancel_at_period_end = True 
                 else:
                     s.current_period_end = None 
-            
             db.commit()
         return redirect(url_for("admin_subs"))
 
-    # SYNC STRIPE
     @app.post("/admin/subs/sync_stripe/<int:sub_id>")
     @admin_required
     def admin_sync_stripe(sub_id: int):
         if not (STRIPE_AVAILABLE and STRIPE_SECRET_KEY):
             flash("Stripe non configuré.", "error")
             return redirect(url_for("admin_subs"))
-
         with Session(app.engine) as db:
             s = db.get(Subscription, sub_id)
             if not s: return redirect(url_for("admin_subs"))
-            
             try:
-                # 1. Recherche large
                 q = f"metadata['bot_key']:'{s.bot_type.key}' AND metadata['guild_id']:'{s.guild.discord_id}'"
                 res = stripe.Subscription.search(query=q, limit=5)
                 items = getattr(res, "data", []) or []
-                
                 if not items:
                     flash(f"🔍 INTROUVABLE. Recherche: {q}", "error")
                     return redirect(url_for("admin_subs"))
-
-                # 2. Tri par date (le plus récent en premier)
                 items.sort(key=lambda x: x.created, reverse=True)
                 target_sub = items[0]
-                
-                # 3. Récupération brute
                 full_sub = stripe.Subscription.retrieve(target_sub.id)
-                
-                # 4. CONVERSION ET EXTRACTION ROBUSTE
-                try:
-                    sub_dict = full_sub.to_dict()
-                except:
-                    sub_dict = dict(full_sub)
-
+                try: sub_dict = full_sub.to_dict()
+                except: sub_dict = dict(full_sub)
                 st = sub_dict.get("status")
-                
-                # --- STRATÉGIE DE RÉCUPÉRATION DE DATE (CASCADES) ---
                 ts = sub_dict.get("current_period_end")
                 if not ts: ts = sub_dict.get("billing_cycle_anchor")
                 if not ts: ts = sub_dict.get("cancel_at")
-                
                 cancel = sub_dict.get("cancel_at_period_end")
-
-                # DEBUG VISUEL
                 debug_msg = f"DEBUG STRIPE > ID: {target_sub.id} | Status: {st} | Timestamp: {ts}"
-                if ts:
-                    date_lisible = dt.datetime.utcfromtimestamp(ts).strftime('%d/%m/%Y')
-                    debug_msg += f" ({date_lisible})"
-                else:
-                    debug_msg += " (DATE NULLE !)"
-                
+                if ts: debug_msg += f" ({dt.datetime.utcfromtimestamp(ts).strftime('%d/%m/%Y')})"
+                else: debug_msg += " (DATE NULLE !)"
                 flash(debug_msg, "warn") 
-
                 new_status = "active" if st in ("active", "trialing", "past_due") else "canceled"
                 new_date = dt.datetime.utcfromtimestamp(ts) if ts else None
-
-                stmt = (
-                    update(Subscription)
-                    .where(Subscription.id == sub_id)
-                    .values(status=new_status, cancel_at_period_end=bool(cancel), current_period_end=new_date)
-                )
+                stmt = (update(Subscription).where(Subscription.id == sub_id).values(status=new_status, cancel_at_period_end=bool(cancel), current_period_end=new_date))
                 db.execute(stmt)
                 db.commit()
-
             except Exception as e:
                 flash(f"💥 ERREUR PYTHON : {str(e)}", "error")
-                
         return redirect(url_for("admin_subs"))
 
-    # NOUVELLE ROUTE : LINK STRIPE (REPARATION)
     @app.post("/admin/subs/link_stripe/<int:sub_id>")
     @admin_required
     def admin_link_stripe(sub_id: int):
@@ -1023,42 +971,24 @@ def make_app():
         if not (STRIPE_AVAILABLE and STRIPE_SECRET_KEY and stripe_id):
             flash("Configuration Stripe ou ID manquant.", "error")
             return redirect(url_for("admin_subs"))
-        
         with Session(app.engine) as db:
             s = db.get(Subscription, sub_id)
             if not s: return redirect(url_for("admin_subs"))
-
             try:
-                # 1. Fetch from Stripe
                 sub = stripe.Subscription.retrieve(stripe_id)
-                
-                # 2. Update Stripe Metadata (Self-repair)
-                stripe.Subscription.modify(
-                    stripe_id,
-                    metadata={
-                        "bot_key": s.bot_type.key,
-                        "guild_id": s.guild.discord_id
-                    }
-                )
-
-                # 3. Update Local DB
+                stripe.Subscription.modify(stripe_id, metadata={"bot_key": s.bot_type.key, "guild_id": s.guild.discord_id})
                 ts = sub.get("current_period_end")
                 cancel = sub.get("cancel_at_period_end")
                 status = sub.get("status")
-                
                 new_status = "active" if status in ("active", "trialing", "past_due") else "canceled"
                 new_date = dt.datetime.utcfromtimestamp(ts) if ts else None
-                
                 s.status = new_status
                 s.current_period_end = new_date
                 s.cancel_at_period_end = bool(cancel)
-                
                 db.commit()
                 flash(f"✅ Abonnement lié et synchronisé ! (Fin : {new_date})", "ok")
-
             except Exception as e:
                 flash(f"Erreur Liaison : {str(e)}", "error")
-
         return redirect(url_for("admin_subs"))
 
     @app.post("/admin/subs/set_status/<int:sub_id>")
@@ -1109,40 +1039,27 @@ def make_app():
             if l: db.delete(l); db.commit()
         return redirect(url_for("admin_subs"))
 
-    # --- NOUVELLE ROUTE : RÉCUPÉRATION DES SALONS DISCORD ---
     @app.get("/api/discord/channels/<guild_id>")
     @login_required
     def api_get_channels(guild_id):
-        # Sécurité : L'utilisateur doit posséder la guilde
         if guild_id not in (session.get("admin_guild_ids") or []):
             return jsonify({"error": "Forbidden"}), 403
-
-        # On cherche un token de bot valide pour cette guilde
         channels = []
         for key, token in BOT_TOKENS.items():
             if not token: continue
             try:
-                r = requests.get(
-                    f"{DISCORD_API_BASE}/guilds/{guild_id}/channels",
-                    headers={"Authorization": f"Bot {token}"},
-                    timeout=3
-                )
+                r = requests.get(f"{DISCORD_API_BASE}/guilds/{guild_id}/channels", headers={"Authorization": f"Bot {token}"}, timeout=3)
                 if r.status_code == 200:
                     data = r.json()
-                    # On ne garde que les salons textuels (type 0) et annonces (type 5)
                     filtered = [c for c in data if c.get("type") in (0, 5)]
                     filtered.sort(key=lambda x: x.get("position", 0))
-                    
                     channels = [{"id": c["id"], "name": c["name"]} for c in filtered]
                     break 
-            except:
-                continue
-        
+            except: continue
         return jsonify(channels)
     
     @app.route('/privacy')
     def privacy_policy():
-        """Affiche la politique de confidentialité"""
         return render_template('privacy.html')
 
     return app

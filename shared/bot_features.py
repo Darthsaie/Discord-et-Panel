@@ -8,6 +8,7 @@ import asyncio
 from discord import app_commands
 from discord.ext import tasks
 from shared.bot_core import UltimateBot
+from shared.debate import run_debate # <--- IMPORT DU MODE DÉBAT
 
 # --- CONFIGURATION API ---
 PANEL_API_URL = "http://bots-panel:5000/api/bot/tasks" 
@@ -64,7 +65,6 @@ def get_random_meme():
         
         if r.status_code == 200:
             data = r.json()
-            # On vérifie si c'est valide et pas NSFW
             if not data.get("nsfw", False) and data.get("url"):
                 return {
                     "title": data["title"], 
@@ -76,7 +76,6 @@ def get_random_meme():
         print(f"⚠️ Echec Meme FR (Passage au backup): {e}")
 
     # 2. PLAN B (Backup International)
-    # Si le FR a échoué, on utilise la méthode par défaut qui marche à 100%
     try:
         r = requests.get("https://meme-api.com/gimme", timeout=4)
         if r.status_code == 200:
@@ -193,6 +192,37 @@ class BotWithFeatures(UltimateBot):
                 await interaction.response.defer()
                 await self.send_feature_message(interaction.channel, 'meme')
                 await interaction.followup.send("✅", ephemeral=True)
+
+        # --- NOUVELLE COMMANDE DÉBAT ---
+        @self.tree.command(name="debat", description="Lancer un débat entre deux bots")
+        @app_commands.describe(sujet="Le thème du débat", bot1="Premier combattant", bot2="Deuxième combattant")
+        @app_commands.choices(bot1=[
+            app_commands.Choice(name="Homer", value="homer"),
+            app_commands.Choice(name="Cartman", value="cartman"),
+            app_commands.Choice(name="Deadpool", value="deadpool"),
+            app_commands.Choice(name="Yoda", value="yoda")
+        ], bot2=[
+            app_commands.Choice(name="Homer", value="homer"),
+            app_commands.Choice(name="Cartman", value="cartman"),
+            app_commands.Choice(name="Deadpool", value="deadpool"),
+            app_commands.Choice(name="Yoda", value="yoda")
+        ])
+        async def slash_debat(interaction: discord.Interaction, sujet: str, bot1: app_commands.Choice[str], bot2: app_commands.Choice[str]):
+            # Vérification de sécurité (abonnement serveur)
+            if await self.check_access(interaction):
+                await interaction.response.defer() # Important car le débat est long
+                
+                # On lance le débat
+                # Note : on passe 'self.openai_client' et 'self.openai_model' qui viennent de UltimateBot
+                await run_debate(
+                    interaction=interaction,
+                    client=self.openai_client,
+                    model_name=self.openai_model,
+                    topic=sujet,
+                    bot1_key=bot1.value,
+                    bot2_key=bot2.value,
+                    rounds=3 # Nombre d'échanges (3 aller-retours)
+                )
 
     # --- SCHEDULER ---
     @tasks.loop(seconds=10)
