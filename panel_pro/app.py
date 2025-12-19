@@ -893,10 +893,10 @@ def make_app():
             guild_map = {g.discord_id: g.name for g in all_guilds}
             # -----------------
 
-        # On envoie bien bot_defs, bot_avatars et guild_map au template
-        return render_template("admin_subs.html", subs=subs, locks=locks, bot_defs=BOT_DEFS, bot_avatars=bot_avatars, guild_map=guild_map)
+        # On envoie bien bot_defs, bot_avatars, guild_map ET NOW au template
+        return render_template("admin_subs.html", subs=subs, locks=locks, bot_defs=BOT_DEFS, bot_avatars=bot_avatars, guild_map=guild_map, now=dt.datetime.utcnow())
 
-    # CREATION MANUELLE (CORRIGÉE : Prend en compte les jours pour l'Actif)
+    # CREATION MANUELLE
     @app.post("/admin/subs/create")
     @admin_required
     def admin_create_sub():
@@ -945,7 +945,7 @@ def make_app():
             db.commit()
         return redirect(url_for("admin_subs"))
 
-    # SYNC STRIPE (VERSION ULTRA ROBUSTE + DICTIONNAIRE FORCÉ + FALLBACK DATE)
+    # SYNC STRIPE
     @app.post("/admin/subs/sync_stripe/<int:sub_id>")
     @admin_required
     def admin_sync_stripe(sub_id: int):
@@ -983,16 +983,10 @@ def make_app():
                 st = sub_dict.get("status")
                 
                 # --- STRATÉGIE DE RÉCUPÉRATION DE DATE (CASCADES) ---
-                # 1. Standard
                 ts = sub_dict.get("current_period_end")
-                # 2. Fallback sur le pivot de facturation (si standard vide)
-                if not ts:
-                    ts = sub_dict.get("billing_cycle_anchor")
-                # 3. Fallback sur la date d'annulation (si existe)
-                if not ts:
-                    ts = sub_dict.get("cancel_at")
-                # ----------------------------------------------------
-
+                if not ts: ts = sub_dict.get("billing_cycle_anchor")
+                if not ts: ts = sub_dict.get("cancel_at")
+                
                 cancel = sub_dict.get("cancel_at_period_end")
 
                 # DEBUG VISUEL
@@ -1019,6 +1013,52 @@ def make_app():
             except Exception as e:
                 flash(f"💥 ERREUR PYTHON : {str(e)}", "error")
                 
+        return redirect(url_for("admin_subs"))
+
+    # NOUVELLE ROUTE : LINK STRIPE (REPARATION)
+    @app.post("/admin/subs/link_stripe/<int:sub_id>")
+    @admin_required
+    def admin_link_stripe(sub_id: int):
+        stripe_id = request.form.get("stripe_id", "").strip()
+        if not (STRIPE_AVAILABLE and STRIPE_SECRET_KEY and stripe_id):
+            flash("Configuration Stripe ou ID manquant.", "error")
+            return redirect(url_for("admin_subs"))
+        
+        with Session(app.engine) as db:
+            s = db.get(Subscription, sub_id)
+            if not s: return redirect(url_for("admin_subs"))
+
+            try:
+                # 1. Fetch from Stripe
+                sub = stripe.Subscription.retrieve(stripe_id)
+                
+                # 2. Update Stripe Metadata (Self-repair)
+                stripe.Subscription.modify(
+                    stripe_id,
+                    metadata={
+                        "bot_key": s.bot_type.key,
+                        "guild_id": s.guild.discord_id
+                    }
+                )
+
+                # 3. Update Local DB
+                ts = sub.get("current_period_end")
+                cancel = sub.get("cancel_at_period_end")
+                status = sub.get("status")
+                
+                new_status = "active" if status in ("active", "trialing", "past_due") else "canceled"
+                new_date = dt.datetime.utcfromtimestamp(ts) if ts else None
+                
+                s.status = new_status
+                s.current_period_end = new_date
+                s.cancel_at_period_end = bool(cancel)
+                
+                db.commit()
+                flash(f"✅ Abonnement lié et synchronisé ! (Fin : {new_date})", "ok")
+
+            except Exception as e:
+                flash(f"Erreur Liaison : {str(e)}", "error")
+
         return redirect(url_for("admin_subs"))
 
     @app.post("/admin/subs/set_status/<int:sub_id>")
@@ -1078,7 +1118,6 @@ def make_app():
             return jsonify({"error": "Forbidden"}), 403
 
         # On cherche un token de bot valide pour cette guilde
-        # On essaie tous les bots disponibles, le premier qui marche gagne
         channels = []
         for key, token in BOT_TOKENS.items():
             if not token: continue
@@ -1091,19 +1130,16 @@ def make_app():
                 if r.status_code == 200:
                     data = r.json()
                     # On ne garde que les salons textuels (type 0) et annonces (type 5)
-                    # et on les trie par position
                     filtered = [c for c in data if c.get("type") in (0, 5)]
                     filtered.sort(key=lambda x: x.get("position", 0))
                     
                     channels = [{"id": c["id"], "name": c["name"]} for c in filtered]
-                    break # On a trouvé, on arrête de chercher
+                    break 
             except:
                 continue
         
         return jsonify(channels)
-    # --------------------------------------------------------
     
-    # Politique de confidentialité (ajouté suite à la discussion précédente)
     @app.route('/privacy')
     def privacy_policy():
         """Affiche la politique de confidentialité"""

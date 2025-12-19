@@ -13,6 +13,15 @@
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   }
 
+  /* --- ALERTS --- */
+  .alerts-container { margin-bottom: 30px; display: flex; flex-direction: column; gap: 12px; }
+  .alert-box { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 12px; font-size: 0.9rem; animation: slideDown 0.3s ease; }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  .alert-warning { background: rgba(251, 146, 60, 0.15); border: 1px solid rgba(251, 146, 60, 0.3); color: #fb923c; }
+  .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; }
+  .alert-icon { font-size: 1.3rem; }
+  .alert-dismiss { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; font-size: 1.2rem; opacity: 0.7; }
+  
   /* --- KPI GRILLE --- */
   .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 40px; }
   .kpi-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 20px; position: relative; overflow: hidden; transition: transform 0.3s ease; }
@@ -26,8 +35,9 @@
   .kpi-value { font-size: 2.5rem; font-weight: 800; color: #fff; line-height: 1; }
   .kpi-icon { position: absolute; right: 20px; bottom: 20px; font-size: 3rem; opacity: 0.1; color: #fff; }
 
-  /* --- BARRE D'OUTILS --- */
+  /* --- TOOLBAR --- */
   .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
+  .toolbar-left { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
   .filter-group { background: rgba(0, 0, 0, 0.2); padding: 5px; border-radius: 12px; display: flex; gap: 5px; }
   .filter-btn { background: transparent; border: none; color: var(--secondary); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; }
   .filter-btn:hover { color: #fff; }
@@ -35,15 +45,31 @@
   .search-input { background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 15px 10px 40px; border-radius: 12px; width: 280px; font-family: inherit; }
   .search-wrapper { position: relative; }
   .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); opacity: 0.5; }
+  .toolbar-right { display: flex; gap: 8px; align-items: center; }
+  .action-btn-secondary { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--secondary); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: 0.2s; }
+  .action-btn-secondary:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
-  /* --- TABLEAU SCROLLABLE --- */
-  .table-scroll-wrap { max-height: 600px; overflow-y: auto; border-radius: 12px; }
+  /* --- BULK ACTIONS --- */
+  .bulk-actions { display: none; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 15px; justify-content: space-between; align-items: center; gap: 15px; }
+  .bulk-actions.visible { display: flex; }
+  .bulk-info { color: #818cf8; font-weight: 600; font-size: 0.9rem; }
+  .bulk-action-btns { display: flex; gap: 8px; }
+  .bulk-btn { background: #6366f1; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: 0.2s; }
+  .bulk-btn:hover { background: #4f46e5; }
+  .bulk-btn.danger { background: #ef4444; }
+
+  /* --- TABLE --- */
+  .table-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.85rem; color: var(--secondary); }
+  .table-scroll-wrap { max-height: 650px; overflow-y: auto; border-radius: 12px; position: relative; }
   .sub-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-  .sub-table thead { position: sticky; top: 0; z-index: 10; background: #1e293b; /* Couleur opaque pour cacher le défilement */ }
+  .sub-table thead { position: sticky; top: 0; z-index: 10; background: #1e293b; }
   .sub-table th { text-align: left; padding: 15px; color: var(--secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1); }
   .sub-table tr.sub-row { background: rgba(255, 255, 255, 0.02); transition: 0.2s; }
   .sub-table tr.sub-row:hover { background: rgba(255, 255, 255, 0.06); }
+  .sub-table tr.sub-row.selected { background: rgba(99, 102, 241, 0.25); }
   .sub-table td { padding: 15px; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .checkbox-cell { width: 40px; text-align: center; }
+  .row-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: #6366f1; }
 
   /* --- ELEMENTS VISUELS --- */
   .bot-avatar { width: 40px; height: 40px; border-radius: 10px; background: #222; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
@@ -53,6 +79,10 @@
   .st-trial { background: rgba(249, 115, 22, 0.2); color: #fb923c; }
   .st-cancel { background: rgba(239, 68, 68, 0.2); color: #f87171; }
   .st-vip { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
+  .days-left { font-weight: 600; padding: 4px 8px; border-radius: 6px; display: inline-block; font-size: 0.85rem; }
+  .days-critical { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+  .days-warning { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
+  .days-good { background: rgba(16, 185, 129, 0.2); color: #34d399; }
   .action-btn-mini { width: 34px; height: 34px; border-radius: 10px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; background: rgba(255,255,255,0.05); color: var(--secondary); }
   .action-btn-mini:hover { background: #fff; color: #000; transform: translateY(-2px); }
   .btn-danger:hover { background: #ef4444; color: #fff; }
@@ -66,21 +96,33 @@
   .input-label { display: block; margin-bottom: 8px; color: var(--secondary); font-size: 0.9rem; font-weight: 600; }
   .modal-input { width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: white; font-family: inherit; font-size: 1rem; }
   .modal-input:focus { outline: none; border-color: var(--accent); background: rgba(0,0,0,0.5); }
+  .modal-input option { background: #1e293b; color: white; }
+
+  /* --- AUDIT --- */
+  .audit-section { margin-top: 50px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px; }
+  .audit-title { text-transform: uppercase; font-size: 0.8rem; color: var(--secondary); letter-spacing: 1px; margin-bottom: 15px; font-weight: 600; }
+  .audit-log { max-height: 400px; overflow-y: auto; background: rgba(0,0,0,0.1); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+  .audit-entry { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; font-size: 0.9rem; }
+  .audit-action { color: #e2e8f0; font-weight: 600; }
+  .audit-details { color: var(--secondary); font-size: 0.85rem; margin-top: 4px; }
+  .audit-time { color: var(--secondary); font-size: 0.8rem; white-space: nowrap; }
 </style>
 
-<div style="max-width: 1200px; margin: 0 auto;">
+<div style="max-width: 1400px; margin: 0 auto;">
 
-  <div style="display:flex; justify-content:space-between; align-items:end; margin-bottom:40px;">
+  <div style="display:flex; justify-content:space-between; align-items:end; margin-bottom:30px;">
     <div>
       <h1 style="font-size:2.5rem; font-weight:800; margin:0; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
         Administration
       </h1>
-      <p style="margin:5px 0 0 0; color:var(--secondary);">Vue d'ensemble des abonnements</p>
+      <p style="margin:5px 0 0 0; color:var(--secondary);">Gestion des abonnements & serveurs</p>
     </div>
-    <button onclick="openAddModal()" class="btn" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); border:none; padding: 12px 24px; color:white; font-weight:700; box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);">
+    <button onclick="openAddModal()" class="btn" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); border:none; padding: 12px 24px; color:white; font-weight:700; box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3); cursor: pointer;">
       + Nouvel Accès
     </button>
   </div>
+
+  <div id="alertsContainer" class="alerts-container"></div>
 
   <div class="kpi-grid">
     <div class="kpi-card kpi-total">
@@ -108,34 +150,65 @@
   <div class="glass-panel">
     
     <div class="toolbar">
-      <div class="filter-group">
-        <button class="filter-btn active" onclick="filterTable('all')">Tout</button>
-        <button class="filter-btn" onclick="filterTable('active')">Actifs</button>
-        <button class="filter-btn" onclick="filterTable('trial')">Essais</button>
-        <button class="filter-btn" onclick="filterTable('canceled')">Stop</button>
+      <div class="toolbar-left">
+        <div class="filter-group">
+          <button class="filter-btn active" onclick="filterTable('all')">Tout</button>
+          <button class="filter-btn" onclick="filterTable('active')">Actifs</button>
+          <button class="filter-btn" onclick="filterTable('trial')">Essais</button>
+          <button class="filter-btn" onclick="filterTable('canceled')">Stop</button>
+        </div>
+
+        <div class="search-wrapper">
+          <i class="ph ph-magnifying-glass search-icon"></i>
+          <input type="text" id="searchInput" class="search-input" placeholder="Chercher: serveur, bot, guild ID...">
+        </div>
       </div>
 
-      <div class="search-wrapper">
-        <i class="ph ph-magnifying-glass search-icon"></i>
-        <input type="text" id="searchInput" class="search-input" placeholder="Chercher un serveur, un bot...">
+      <div class="toolbar-right">
+        <button class="action-btn-secondary" onclick="exportAsCSV()">📥 CSV</button>
+        <button class="action-btn-secondary" onclick="exportAsJSON()">📥 JSON</button>
       </div>
+    </div>
+
+    <div id="bulkActionsBar" class="bulk-actions">
+      <div class="bulk-info"><span id="bulkSelectedCount">0</span> sélectionné(s)</div>
+      <div class="bulk-action-btns">
+        <button class="bulk-btn" onclick="bulkChangeStatus('active')">Activer</button>
+        <button class="bulk-btn" onclick="bulkChangeStatus('trial')">Essai</button>
+        <button class="bulk-btn danger" onclick="bulkChangeStatus('canceled')">Annuler</button>
+        <button class="bulk-btn danger" onclick="bulkDelete()">Supprimer</button>
+      </div>
+    </div>
+
+    <div class="table-controls">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="selectAllCheckbox" style="width:18px; height:18px; accent-color:#6366f1;">
+        <span>Sélectionner tout</span>
+      </label>
+      <span id="visibleCount">0 / 0 visible</span>
     </div>
 
     <div class="table-scroll-wrap">
       <table class="sub-table" id="mainTable">
         <thead>
           <tr>
+            <th class="checkbox-cell"></th>
             <th>Bot & ID</th>
             <th>Serveur (Guild)</th>
             <th>Statut</th>
+            <th>Jours Restants</th>
             <th>Expiration</th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody>
         {% for s in subs %}
-          <tr class="sub-row" data-status="{{ s.status }}">
+          <tr class="sub-row" data-status="{{ s.status }}" data-sub-id="{{ s.id }}" data-guild-name="{{ s.guild.name }}" data-bot-key="{{ s.bot_type.key }}" data-expiry="{{ (s.current_period_end or s.trial_until or '').isoformat() if s.current_period_end or s.trial_until }}">
             
+            <td class="checkbox-cell">
+              <input type="checkbox" class="row-checkbox" data-sub-id="{{ s.id }}">
+            </td>
+
             <td>
               <div style="display:flex; align-items:center; gap:12px;">
                 <div class="bot-avatar">
@@ -150,86 +223,93 @@
 
             <td>
               <div style="font-weight:600; color:#e2e8f0; font-size:0.95rem;">{{ s.guild.name }}</div>
-              <div style="font-family:monospace; font-size:0.8em; color:var(--secondary); opacity:0.6; margin-top:2px;">
-                {{ s.guild.discord_id }}
-              </div>
+              <div style="font-family:monospace; font-size:0.8em; color:var(--secondary); opacity:0.6; margin-top:2px;">{{ s.guild.discord_id }}</div>
+            </td>
+
+            <td>
+              {% if s.status == 'active' %} <span class="status-badge st-active">Actif</span>
+              {% elif s.status == 'trial' %} <span class="status-badge st-trial">Essai</span>
+              {% elif s.status == 'lifetime' %} <span class="status-badge st-vip">VIP</span>
+              {% else %} <span class="status-badge st-cancel">Terminé</span>
+              {% endif %}
             </td>
 
             <td>
               {% if s.status == 'active' %}
-                <span class="status-badge st-active">Actif</span>
+                {% if s.current_period_end %}
+                  {% set days = ((s.current_period_end) - now).days %}
+                  <span class="days-left {% if days < 7 %}days-critical{% elif days < 14 %}days-warning{% else %}days-good{% endif %}">{{ days }} j</span>
+                {% else %} <span style="color:#60a5fa; font-style:italic;">Manuel</span> {% endif %}
               {% elif s.status == 'trial' %}
-                <span class="status-badge st-trial">Essai</span>
-              {% elif s.status == 'lifetime' %}
-                <span class="status-badge st-vip">VIP</span>
-              {% else %}
-                <span class="status-badge st-cancel">Terminé</span>
+                {% if s.trial_until %}
+                  {% set days = ((s.trial_until) - now).days %}
+                  <span class="days-left {% if days < 3 %}days-critical{% elif days < 7 %}days-warning{% else %}days-good{% endif %}">{{ days }} j</span>
+                {% else %} <span>-</span> {% endif %}
+              {% elif s.status == 'lifetime' %} <span style="color:#c4b5fd;">∞</span>
+              {% else %} <span style="opacity:0.3;">-</span>
               {% endif %}
             </td>
 
             <td style="font-size:0.9rem;">
               {% if s.status == 'active' %}
-                 {% if s.current_period_end %}
-                    {% if s.cancel_at_period_end %}
-                      <div style="color:#f87171; font-weight:600;">🛑 Fin le {{ s.current_period_end.strftime('%d/%m/%Y') }}</div>
-                    {% else %}
-                      <div style="color:#34d399;">🔄 {{ s.current_period_end.strftime('%d/%m') }}</div>
-                    {% endif %}
-                 {% else %}
-                    <div style="color:#60a5fa; font-style:italic;">Actif (Manuel)</div>
-                 {% endif %}
+                {% if s.current_period_end %}
+                  {% if s.cancel_at_period_end %}<div style="color:#f87171; font-weight:600;">🛑 {{ s.current_period_end.strftime('%d/%m') }}</div>
+                  {% else %}<div style="color:#34d399;">🔄 {{ s.current_period_end.strftime('%d/%m') }}</div>{% endif %}
+                {% else %}<div style="color:#60a5fa;">∞ Manuel</div>{% endif %}
               {% elif s.status == 'trial' %}
-                 <div style="color:#fb923c;">⏳ {{ s.trial_until.strftime('%d/%m') if s.trial_until else '?' }}</div>
+                <div style="color:#fb923c;">⏳ {{ s.trial_until.strftime('%d/%m') if s.trial_until else '?' }}</div>
               {% elif s.status == 'lifetime' %}
-                 <span style="color:#c4b5fd;">♾️ Toujours</span>
-              {% else %}
-                 <span style="opacity:0.3;">-</span>
-              {% endif %}
+                <span style="color:#c4b5fd;">♾️ VIP</span>
+              {% else %}<span style="opacity:0.3;">-</span>{% endif %}
             </td>
 
             <td style="text-align:right;">
               <div style="display:flex; justify-content:flex-end; gap:8px;">
                 {% if s.status == 'active' %}
-                <form method="post" action="{{ url_for('admin_sync_stripe', sub_id=s.id) }}">
+                <form method="post" action="{{ url_for('admin_sync_stripe', sub_id=s.id) }}" style="display:inline;">
                   <button type="submit" class="action-btn-mini btn-sync" title="Sync Stripe"><i class="ph ph-arrows-clockwise"></i></button>
                 </form>
                 {% endif %}
-                
                 <button class="action-btn-mini" title="Modifier" onclick="openEditModal('{{ s.id }}', '{{ s.guild.name|escape }}', '{{ s.bot_type.key }}', '{{ s.status }}')">
                   <i class="ph ph-gear"></i>
                 </button>
-                
-                <form method="post" action="{{ url_for('admin_delete_sub', sub_id=s.id) }}" onsubmit="return confirm('Supprimer définitivement ?')">
+                <form method="post" action="{{ url_for('admin_delete_sub', sub_id=s.id) }}" style="display:inline;" onsubmit="return confirm('Supprimer définitivement ?')">
                   <button type="submit" class="action-btn-mini btn-danger" title="Supprimer"><i class="ph ph-trash"></i></button>
                 </form>
               </div>
             </td>
-
           </tr>
         {% else %}
-          <tr><td colspan="5" style="text-align:center; padding:40px; color:var(--secondary);">Aucune donnée disponible.</td></tr>
+          <tr><td colspan="7" style="text-align:center; padding:40px; color:var(--secondary);">Aucune donnée disponible.</td></tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
 
-  <div style="margin-top:40px; opacity:0.6;">
-    <h4 style="text-transform:uppercase; font-size:0.8rem; color:var(--secondary); letter-spacing:1px; margin-bottom:10px;">
-      🔒 Historique des Essais Consommés
-    </h4>
+  <div class="audit-section">
+    <div class="audit-title">🔍 Historique des modifications (derniers 20)</div>
+    <div class="audit-log" id="auditLog">
+      <div style="padding:20px; text-align:center; color:var(--secondary);">Pas de modifications récentes.</div>
+    </div>
+  </div>
+
+  {% if locks %}
+  <div style="margin-top:30px; opacity:0.7;">
+    <h4 style="text-transform:uppercase; font-size:0.8rem; color:var(--secondary); letter-spacing:1px; margin-bottom:10px;">🔒 Essais Consommés</h4>
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
       {% for l in locks %}
       <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); padding:6px 12px; border-radius:8px; font-size:0.75rem; color:#aaa; display:flex; align-items:center; gap:8px;">
         <span style="color:#fff;">{{ guild_map.get(l.guild_discord_id, l.guild_discord_id) }}</span>
         <span style="color:var(--accent);">({{ l.bot_key|capitalize }})</span>
-        <form method="post" action="{{ url_for('admin_release_lock', lock_id=l.id) }}" style="margin:0;">
+        <form method="post" action="{{ url_for('admin_release_lock', lock_id=l.id) }}" style="margin:0; display:inline;">
           <button type="submit" style="background:none; border:none; color:#f87171; cursor:pointer; font-size:1rem; padding:0;">&times;</button>
         </form>
       </div>
       {% endfor %}
     </div>
   </div>
+  {% endif %}
 
 </div>
 
@@ -239,13 +319,11 @@
       <h2 style="margin:0;">Nouvel Accès</h2>
       <button onclick="closeModal('modalAdd')" style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer;">&times;</button>
     </div>
-    
     <form method="post" action="{{ url_for('admin_create_sub') }}">
       <div class="input-group">
         <label class="input-label">ID Serveur Discord</label>
         <input type="text" name="guild_discord_id" class="modal-input" placeholder="Ex: 119613858..." required>
       </div>
-      
       <div style="display:flex; gap:15px; margin-bottom:20px;">
         <div style="flex:1;">
           <label class="input-label">Bot</label>
@@ -264,16 +342,12 @@
           </select>
         </div>
       </div>
-
       <div class="input-group">
         <label class="input-label">Durée (Jours)</label>
         <input type="number" name="days" value="30" class="modal-input">
         <small style="color:#666; display:block; margin-top:5px;">Mettre 0 pour illimité (Actif manuel).</small>
       </div>
-
-      <button type="submit" class="btn" style="width:100%; background:var(--accent); color:white; padding:12px; font-weight:700; border:none; border-radius:10px; cursor:pointer;">
-        Créer l'accès
-      </button>
+      <button type="submit" class="btn" style="width:100%; background:var(--accent); color:white; padding:12px; font-weight:700; border:none; border-radius:10px; cursor:pointer;">Créer l'accès</button>
     </form>
   </div>
 </div>
@@ -299,73 +373,201 @@
         </div>
     </form>
 
-    <form id="formProlong" method="post" action="" style="background:rgba(251, 146, 60, 0.1); border:1px solid rgba(251, 146, 60, 0.2); padding:15px; border-radius:12px; display:none;">
+    <form id="formProlong" method="post" action="" style="background:rgba(251, 146, 60, 0.1); border:1px solid rgba(251, 146, 60, 0.2); padding:15px; border-radius:12px; display:none; margin-bottom:15px;">
         <label class="input-label" style="color:#fb923c;">Prolonger l'essai :</label>
         <div style="display:flex; gap:10px;">
             <input type="number" name="days" value="3" class="modal-input" style="width:80px;">
             <button type="submit" class="btn" style="flex:1; background:#fb923c; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Ajouter Jours</button>
         </div>
     </form>
+
+    <form id="formLinkStripe" method="post" action="" style="background:rgba(99, 102, 241, 0.1); border:1px solid rgba(99, 102, 241, 0.2); padding:15px; border-radius:12px;">
+        <label class="input-label" style="color:#818cf8;">Lier Stripe (Réparer) :</label>
+        <div style="display:flex; gap:10px;">
+            <input type="text" name="stripe_id" placeholder="sub_..." class="modal-input">
+            <button type="submit" class="btn" style="background:#6366f1; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Lier & Fix</button>
+        </div>
+        <small style="color:var(--secondary); font-size:0.75rem; margin-top:5px; display:block;">Collez l'ID 'sub_...' pour forcer la date et réparer la synchro auto.</small>
+    </form>
   </div>
 </div>
 
 <script>
-function openAddModal() { document.getElementById('modalAdd').style.display = 'flex'; }
-function openEditModal(subId, guildName, botKey, currentStatus) {
-    const modal = document.getElementById('modalEdit');
-    document.getElementById('editSubtitle').innerText = guildName + " • " + botKey.toUpperCase();
-    document.getElementById('formStatus').action = "/admin/subs/set_status/" + subId;
-    const formProlong = document.getElementById('formProlong');
-    if (currentStatus === 'trial') {
-        formProlong.style.display = 'block';
-        formProlong.action = "/admin/subs/prolong/" + subId;
-    } else { formProlong.style.display = 'none'; }
-    modal.style.display = 'flex';
+// =============== STATE & HELPERS ===============
+const auditLog = [];
+let selectedRows = new Set();
+let currentFilter = 'all';
+
+function addAuditEntry(action, details) {
+  const entry = { action, details, timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) };
+  auditLog.unshift(entry); if (auditLog.length > 20) auditLog.pop(); updateAuditDisplay();
 }
+
+function updateAuditDisplay() {
+  const container = document.getElementById('auditLog');
+  if (auditLog.length === 0) { container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--secondary);">Pas de modifications récentes.</div>'; return; }
+  container.innerHTML = auditLog.map(e => `<div class="audit-entry"><div class="audit-left"><div class="audit-action">${e.action}</div><div class="audit-details">${e.details}</div></div><div class="audit-time">${e.timestamp}</div></div>`).join('');
+}
+
+function generateAlerts() {
+  const container = document.getElementById('alertsContainer');
+  const rows = document.querySelectorAll('.sub-row');
+  const alerts = [];
+  const now = new Date();
+
+  rows.forEach(row => {
+    const status = row.getAttribute('data-status');
+    const expiryStr = row.getAttribute('data-expiry');
+    if (!expiryStr) return;
+    const expiry = new Date(expiryStr);
+    const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+    const guild = row.getAttribute('data-guild-name');
+    const bot = row.getAttribute('data-bot-key').toUpperCase();
+
+    if (status === 'trial' && daysLeft <= 2 && daysLeft > 0) { alerts.push({ type: 'warning', icon: '⏳', message: `<strong>${guild}</strong> (${bot}) - Essai expire dans <strong>${daysLeft}j</strong>` }); }
+    if ((status === 'active' || status === 'lifetime') && daysLeft < 0) { alerts.push({ type: 'error', icon: '❌', message: `<strong>${guild}</strong> (${bot}) - Expiration dépassée de <strong>${Math.abs(daysLeft)}j</strong>` }); }
+  });
+
+  if (alerts.length === 0) { container.innerHTML = ''; return; }
+  container.innerHTML = alerts.map(a => `<div class="alert-box alert-${a.type}"><span class="alert-icon">${a.icon}</span><span>${a.message}</span><button class="alert-dismiss" onclick="this.parentElement.remove()">×</button></div>`).join('');
+}
+
+// =============== MODAL ===============
+function openAddModal() { document.getElementById('modalAdd').style.display = 'flex'; }
+
+function openEditModal(subId, guildName, botKey, currentStatus) {
+  const modal = document.getElementById('modalEdit');
+  document.getElementById('editSubtitle').innerText = guildName + " • " + botKey.toUpperCase();
+  document.getElementById('formStatus').action = "/admin/subs/set_status/" + subId;
+  
+  const formProlong = document.getElementById('formProlong');
+  if (currentStatus === 'trial') { formProlong.style.display = 'block'; formProlong.action = "/admin/subs/prolong/" + subId; } else { formProlong.style.display = 'none'; }
+  
+  // Update Link Form Action
+  document.getElementById('formLinkStripe').action = "/admin/subs/link_stripe/" + subId;
+  
+  modal.style.display = 'flex';
+}
+
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-window.onclick = function(e) { if (e.target.classList.contains('modal-overlay')) { e.target.style.display = "none"; } }
+window.onclick = function(e) { if (e.target.classList.contains('modal-overlay')) { e.target.style.display = "none"; } };
+
+// =============== TABLE FILTERING ===============
+function updateTable() {
+  const rows = document.querySelectorAll('.sub-row');
+  const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+  let counts = { total: 0, active: 0, trial: 0, cancel: 0 };
+  let visibleCount = 0;
+
+  rows.forEach(row => {
+    const status = row.getAttribute('data-status');
+    const text = row.innerText.toLowerCase();
+    counts.total++;
+    if (status === 'active' || status === 'lifetime') counts.active++; else if (status === 'trial') counts.trial++; else counts.cancel++;
+    const matchesFilter = (currentFilter === 'all') || (currentFilter === 'active' && (status === 'active' || status === 'lifetime')) || (currentFilter === status);
+    const matchesSearch = text.includes(searchTerm);
+    if (matchesFilter && matchesSearch) { row.style.display = ''; visibleCount++; } else { row.style.display = 'none'; }
+  });
+
+  document.getElementById('count-total').innerText = counts.total;
+  document.getElementById('count-active').innerText = counts.active;
+  document.getElementById('count-trial').innerText = counts.trial;
+  document.getElementById('count-cancel').innerText = counts.cancel;
+  document.getElementById('visibleCount').innerText = visibleCount + ' / ' + counts.total + ' visible';
+  generateAlerts();
+}
+
+window.filterTable = function(filterType) {
+  currentFilter = filterType;
+  document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  updateTable();
+};
+document.getElementById('searchInput').addEventListener('keyup', updateTable);
+
+// =============== BULK ACTIONS ===============
+function updateBulkActionsBar() {
+  const count = selectedRows.size;
+  const bar = document.getElementById('bulkActionsBar');
+  document.getElementById('bulkSelectedCount').innerText = count;
+  if (count > 0) bar.classList.add('visible'); else bar.classList.remove('visible');
+}
 
 document.addEventListener('DOMContentLoaded', function() {
-    const rows = document.querySelectorAll('.sub-row');
-    const searchInput = document.getElementById('searchInput');
-    let currentFilter = 'all';
+  document.getElementById('selectAllCheckbox').addEventListener('change', function(e) {
+    const rows = document.querySelectorAll('.sub-row:not([style*="display: none"])');
+    const checkboxes = document.querySelectorAll('.row-checkbox:not([style*="display: none"])');
+    rows.forEach(row => {
+      const subId = row.getAttribute('data-sub-id');
+      if (e.target.checked) { row.classList.add('selected'); selectedRows.add(subId); } else { row.classList.remove('selected'); selectedRows.delete(subId); }
+    });
+    checkboxes.forEach(cb => cb.checked = e.target.checked);
+    updateBulkActionsBar();
+  });
 
-    function updateTable() {
-        let counts = { total: 0, active: 0, trial: 0, cancel: 0 };
-        const term = searchInput.value.toLowerCase();
-
-        rows.forEach(row => {
-            const status = row.getAttribute('data-status');
-            const text = row.innerText.toLowerCase();
-            
-            counts.total++;
-            if (status === 'active' || status === 'lifetime') counts.active++;
-            else if (status === 'trial') counts.trial++;
-            else counts.cancel++;
-
-            const matchesFilter = (currentFilter === 'all') || (currentFilter === 'active' && (status === 'active' || status === 'lifetime')) || (currentFilter === status);
-            const matchesSearch = text.includes(term);
-
-            if (matchesFilter && matchesSearch) row.style.display = '';
-            else row.style.display = 'none';
-        });
-
-        document.getElementById('count-total').innerText = counts.total;
-        document.getElementById('count-active').innerText = counts.active;
-        document.getElementById('count-trial').innerText = counts.trial;
-        document.getElementById('count-cancel').innerText = counts.cancel;
-    }
-
-    window.filterTable = function(filterType) {
-        currentFilter = filterType;
-        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-        updateTable();
-    };
-
-    searchInput.addEventListener('keyup', updateTable);
-    updateTable();
+  document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+      const row = this.closest('tr');
+      const subId = row.getAttribute('data-sub-id');
+      if (this.checked) { row.classList.add('selected'); selectedRows.add(subId); } else { row.classList.remove('selected'); selectedRows.delete(subId); document.getElementById('selectAllCheckbox').checked = false; }
+      updateBulkActionsBar();
+    });
+  });
+  updateTable();
 });
+
+function bulkChangeStatus(status) {
+  if (selectedRows.size === 0) return alert('Aucune ligne sélectionnée');
+  if (!confirm(`Changer le statut de ${selectedRows.size} élément(s) à "${status}" ?`)) return;
+  selectedRows.forEach(subId => {
+    fetch(`/admin/subs/set_status/${subId}`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `status=${status}` })
+    .then(() => addAuditEntry('Changement de statut', `Sub #${subId} → ${status}`));
+  });
+  setTimeout(() => location.reload(), 500);
+}
+
+function bulkDelete() {
+  if (selectedRows.size === 0) return alert('Aucune ligne sélectionnée');
+  if (!confirm(`Supprimer définitivement ${selectedRows.size} élément(s) ?`)) return;
+  selectedRows.forEach(subId => {
+    fetch(`/admin/subs/delete/${subId}`, { method: 'POST' }).then(() => addAuditEntry('Suppression', `Sub #${subId}`));
+  });
+  setTimeout(() => location.reload(), 500);
+}
+
+function exportAsCSV() {
+  const rows = document.querySelectorAll('.sub-row');
+  let csv = 'Bot,Guild,GuildID,Status,ExpiryDate\n';
+  rows.forEach(row => {
+    const bot = row.querySelector('div[style*="text-transform:capitalize"]')?.innerText || '';
+    const guild = row.querySelector('div[style*="font-weight:600"]')?.innerText || '';
+    const guildId = row.querySelector('div[style*="font-family:monospace"]')?.innerText || '';
+    const status = row.getAttribute('data-status') || '';
+    const expiry = row.getAttribute('data-expiry') || '';
+    csv += `"${bot}","${guild}","${guildId}","${status}","${expiry}"\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `subs_export.csv`; a.click();
+}
+
+function exportAsJSON() {
+  const rows = document.querySelectorAll('.sub-row');
+  const data = [];
+  rows.forEach(row => {
+    data.push({
+      bot: row.querySelector('div[style*="text-transform:capitalize"]')?.innerText || '',
+      guild: row.querySelector('div[style*="font-weight:600"]')?.innerText || '',
+      status: row.getAttribute('data-status'),
+      expiry: row.getAttribute('data-expiry')
+    });
+  });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `subs_export.json`; a.click();
+}
 </script>
 
 {% endblock %}
