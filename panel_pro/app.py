@@ -15,7 +15,7 @@ load_dotenv()
 # =========================
 SECRET_KEY       = os.getenv("SECRET_KEY", secrets.token_hex(16))
 
-# CORRECTION SÉCURITÉ : Pas de valeur par défaut pour le token critique
+# SÉCURITÉ CRITIQUE : Crash si le token n'est pas défini
 PANEL_API_TOKEN = os.getenv("PANEL_API_TOKEN")
 if not PANEL_API_TOKEN:
     raise ValueError("CRITICAL: PANEL_API_TOKEN is missing from .env configuration!")
@@ -935,7 +935,7 @@ def make_app():
             db.commit()
         return redirect(url_for("admin_subs"))
 
-    # SYNC STRIPE (CORRIGÉE : Lecture plus directe avec debug)
+    # SYNC STRIPE (VERSION ULTRA ROBUSTE + DICTIONNAIRE FORCÉ + FALLBACK DATE)
     @app.post("/admin/subs/sync_stripe/<int:sub_id>")
     @admin_required
     def admin_sync_stripe(sub_id: int):
@@ -948,47 +948,67 @@ def make_app():
             if not s: return redirect(url_for("admin_subs"))
             
             try:
+                # 1. Recherche large
                 q = f"metadata['bot_key']:'{s.bot_type.key}' AND metadata['guild_id']:'{s.guild.discord_id}'"
-                print(f"[DEBUG] Recherche Stripe: {q}")
-                
-                res = stripe.Subscription.search(query=q, limit=1)
+                res = stripe.Subscription.search(query=q, limit=5)
                 items = getattr(res, "data", []) or []
-                found_summary = items[0] if items else None
                 
-                if found_summary:
-                    sub_id_stripe = found_summary.get("id")
-                    print(f"[DEBUG] Abonnement trouvé ID: {sub_id_stripe}")
-                    
-                    full_sub = stripe.Subscription.retrieve(sub_id_stripe)
-                    
-                    # LOGS BRUTAL pour voir ce qui se passe
-                    print(f"[DEBUG] Full Sub Object Keys: {full_sub}")
+                if not items:
+                    flash(f"🔍 INTROUVABLE. Recherche: {q}", "error")
+                    return redirect(url_for("admin_subs"))
 
-                    # Lecture directe avec fallback (compatible v5+)
-                    st = full_sub.get("status")
-                    ts = full_sub.get("current_period_end")
-                    cancel_at_end = full_sub.get("cancel_at_period_end", False)
-                    
-                    print(f"[DEBUG] Valeurs extraites -> Status: {st} | Timestamp: {ts}")
+                # 2. Tri par date (le plus récent en premier)
+                items.sort(key=lambda x: x.created, reverse=True)
+                target_sub = items[0]
+                
+                # 3. Récupération brute
+                full_sub = stripe.Subscription.retrieve(target_sub.id)
+                
+                # 4. CONVERSION ET EXTRACTION ROBUSTE
+                try:
+                    sub_dict = full_sub.to_dict()
+                except:
+                    sub_dict = dict(full_sub)
 
-                    new_status = "active" if st in ("active", "trialing", "past_due") else "canceled"
-                    new_date = dt.datetime.utcfromtimestamp(ts) if ts else None
+                st = sub_dict.get("status")
+                
+                # --- STRATÉGIE DE RÉCUPÉRATION DE DATE (CASCADES) ---
+                # 1. Standard
+                ts = sub_dict.get("current_period_end")
+                # 2. Fallback sur le pivot de facturation (si standard vide)
+                if not ts:
+                    ts = sub_dict.get("billing_cycle_anchor")
+                # 3. Fallback sur la date d'annulation (si existe)
+                if not ts:
+                    ts = sub_dict.get("cancel_at")
+                # ----------------------------------------------------
 
-                    stmt = (
-                        update(Subscription)
-                        .where(Subscription.id == sub_id)
-                        .values(status=new_status, cancel_at_period_end=cancel_at_end, current_period_end=new_date)
-                    )
-                    db.execute(stmt)
-                    db.commit()
-                    
-                    flash(f"Sync OK: Status={new_status} | Date={new_date}", "ok")
+                cancel = sub_dict.get("cancel_at_period_end")
+
+                # DEBUG VISUEL
+                debug_msg = f"DEBUG STRIPE > ID: {target_sub.id} | Status: {st} | Timestamp: {ts}"
+                if ts:
+                    date_lisible = dt.datetime.utcfromtimestamp(ts).strftime('%d/%m/%Y')
+                    debug_msg += f" ({date_lisible})"
                 else:
-                    print("[DEBUG] Aucun abonnement trouvé avec ces métadonnées.")
-                    flash("Aucun abonnement Stripe trouvé.", "warn")
+                    debug_msg += " (DATE NULLE !)"
+                
+                flash(debug_msg, "warn") 
+
+                new_status = "active" if st in ("active", "trialing", "past_due") else "canceled"
+                new_date = dt.datetime.utcfromtimestamp(ts) if ts else None
+
+                stmt = (
+                    update(Subscription)
+                    .where(Subscription.id == sub_id)
+                    .values(status=new_status, cancel_at_period_end=bool(cancel), current_period_end=new_date)
+                )
+                db.execute(stmt)
+                db.commit()
+
             except Exception as e:
-                print(f"[DEBUG] ERREUR CRITIQUE: {e}")
-                flash(f"Erreur: {e}", "error")
+                flash(f"💥 ERREUR PYTHON : {str(e)}", "error")
+                
         return redirect(url_for("admin_subs"))
 
     @app.post("/admin/subs/set_status/<int:sub_id>")
