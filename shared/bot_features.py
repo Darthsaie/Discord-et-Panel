@@ -13,7 +13,7 @@ from shared.bot_core import UltimateBot
 from shared.debate import run_debate 
 from shared.quiz import start_quiz, check_answer, get_top_scores
 from shared.recap import generate_recap
-from shared.clash import clash_user  # <--- Import CLASH
+from shared.clash import clash_user 
 
 # --- CONFIGURATION API ---
 PANEL_API_URL = "http://bots-panel:5000/api/bot/tasks" 
@@ -209,14 +209,19 @@ class BotWithFeatures(UltimateBot):
                 await interaction.response.defer()
                 await start_quiz(interaction, self.openai_client, self.persona_name)
 
+        # --- MODIFICATION ICI : AJOUT DU LIEN VERS LE PANEL ---
         @self.tree.command(name="classement", description="Voir le top des joueurs du Quiz")
         async def slash_classement(interaction: discord.Interaction):
             if await self.check_access(interaction):
                 top = get_top_scores()
-                txt = "**🏆 CLASSEMENT QUIZ**\n"
+                txt = "**🏆 CLASSEMENT QUIZ (TOP 5)**\n"
                 for i, (uid, score) in enumerate(top, 1):
                     txt += f"{i}. <@{uid}> : **{score} pts**\n"
                 if not top: txt += "Aucun score pour l'instant."
+                
+                # Le lien magique qui redirige vers ton panel
+                txt += "\n🔗 **Voir tout le classement :** https://panel.4ubot.fr/leaderboard"
+                
                 await interaction.response.send_message(txt)
 
         @self.tree.command(name="recap", description="Génère un Flash Info des dernières discussions")
@@ -225,7 +230,6 @@ class BotWithFeatures(UltimateBot):
                 await interaction.response.defer()
                 await generate_recap(interaction, self.openai_client, self.persona_name)
 
-        # --- CLASH (AJOUTÉ) ---
         @self.tree.command(name="clash", description="Clash un membre du serveur")
         async def slash_clash(interaction: discord.Interaction, victime: discord.User):
             if await self.check_access(interaction):

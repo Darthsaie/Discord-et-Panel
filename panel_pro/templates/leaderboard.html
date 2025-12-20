@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .leader-card {
+    background: rgba(30, 41, 59, 0.4);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 30px;
+    max-width: 800px;
+    margin: 0 auto;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  }
+  .rank-row {
+    display: flex; align-items: center; gap: 15px;
+    padding: 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.2s;
+  }
+  .rank-row:hover {
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+  }
+  
+  .rank-num { 
+    font-size: 1.5rem; font-weight: 800; width: 50px; text-align: center; color: #fbbf24; 
+    text-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
+  }
+  
+  /* Style pour l'avatar et le nom alignés */
+  .player-row-content { display: flex; align-items: center; gap: 15px; flex: 1; }
+  
+  .player-avatar { 
+    width: 42px; height: 42px; border-radius: 50%; object-fit: cover; 
+    background: #333; border: 2px solid rgba(255,255,255,0.1); 
+  }
+  
+  .player-name { font-weight: 700; color: #fff; font-size: 1.1rem; }
+  
+  .player-score { 
+    font-family: monospace; font-size: 1.3rem; color: #34d399; font-weight: 800; 
+    background: rgba(52, 211, 153, 0.1); padding: 5px 12px; border-radius: 8px;
+  }
+</style>
+
+<div style="text-align:center; margin-bottom:40px;">
+  <h1 style="font-size:3rem; font-weight:900; margin:0; background: linear-gradient(to right, #f472b6, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+    CLASSEMENT
+  </h1>
+  <p style="color:var(--secondary); font-size: 1.1rem; margin-top: 5px;">Les meilleurs cerveaux du Quiz</p>
+</div>
+
+<div class="leader-card">
+  {% for p in scores %}
+    <div class="rank-row">
+      <div class="rank-num">#{{ loop.index }}</div>
+      
+      <div class="player-row-content">
+        {% if p.avatar %}
+            <img src="{{ p.avatar }}" class="player-avatar" alt="Avatar de {{ p.name }}">
+        {% else %}
+            <div class="player-avatar" style="display:grid; place-items:center; font-size:0.8rem; background: #4f46e5;">?</div>
+        {% endif %}
+        
+        <div class="player-name">{{ p.name }}</div>
+      </div>
+
+      <div class="player-score">{{ p.score }} pts</div>
+    </div>
+  {% else %}
+    <div style="text-align:center; padding:40px; color:var(--secondary);">
+      <div style="font-size: 3rem; margin-bottom: 10px;">👻</div>
+      Aucun score enregistré pour le moment.<br>
+      Lancez un <code>/quiz</code> sur Discord pour être le premier !
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

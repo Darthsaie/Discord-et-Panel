@@ -14,6 +14,11 @@ services:
       BOT_KEY: homer
       PANEL_API_URL: http://bots-panel:5000
       PANEL_API_TOKEN: ${PANEL_API_TOKEN}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   cartman:
     build:
@@ -30,6 +35,11 @@ services:
       BOT_KEY: cartman
       PANEL_API_URL: http://bots-panel:5000
       PANEL_API_TOKEN: ${PANEL_API_TOKEN}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   deadpool:
     build:
@@ -46,6 +56,11 @@ services:
       BOT_KEY: deadpool
       PANEL_API_URL: http://bots-panel:5000
       PANEL_API_TOKEN: ${PANEL_API_TOKEN}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   yoda:
     build:
@@ -62,6 +77,11 @@ services:
       BOT_KEY: yoda
       PANEL_API_URL: http://bots-panel:5000
       PANEL_API_TOKEN: ${PANEL_API_TOKEN}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   panel:
     build:
@@ -72,9 +92,13 @@ services:
     volumes:
       - ./panel_pro:/app
       - ./.env:/app/.env
-    # --- MODIFICATION ICI : Port 5001 (Extérieur) -> 5000 (Intérieur) ---
+      - ./shared:/app/shared
     ports:
       - "5001:5000"
-    # --------------------------------------------------------------------
     env_file:
       - .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

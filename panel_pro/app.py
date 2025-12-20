@@ -1,11 +1,12 @@
 import os
 import secrets
 import datetime as dt
+import json  # Pour lire le leaderboard
+import requests # Pour contacter l'API Discord
 
 from flask import Flask, redirect, url_for, request, render_template, jsonify, flash, session, abort
 from sqlalchemy import create_engine, select, Integer, String, DateTime, ForeignKey, Boolean, event, update
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session, selectinload
-import requests
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -1061,6 +1062,72 @@ def make_app():
     @app.route('/privacy')
     def privacy_policy():
         return render_template('privacy.html')
+
+    # ==========================
+    #  ROUTE LEADERBOARD (CORRIGÉE)
+    # ==========================
+    @app.get("/leaderboard")
+    def leaderboard():
+        # 1. Lecture du fichier partagé (JSON)
+        filepath = "/app/shared/leaderboard.json"
+        scores = {}
+        try:
+            if os.path.exists(filepath):
+                with open(filepath, "r") as f:
+                    scores = json.load(f)
+        except Exception as e:
+            print(f"Erreur lecture leaderboard: {e}")
+
+        # 2. Tri par score décroissant (Top 50)
+        sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:50]
+        
+        enriched_scores = []
+        
+        # 3. Sélection d'un token bot valide pour l'API Discord
+        # On essaie de prendre le premier token disponible
+        token = HOMER_TOKEN or CARTMAN_TOKEN or DEADPOOL_TOKEN or YODA_TOKEN
+        
+        for uid, score in sorted_scores:
+            # Valeurs par défaut (si l'API échoue)
+            name = f"Joueur {uid}"
+            avatar = None
+            
+            # 4. Appel API Discord pour avoir le vrai pseudo et l'avatar
+            if token:
+                try:
+                    # On appelle l'API Discord pour récupérer les infos de l'utilisateur
+                    # Timeout court (1s) pour ne pas ralentir la page si Discord rame
+                    r = requests.get(
+                        f"https://discord.com/api/users/{uid}", 
+                        headers={"Authorization": f"Bot {token}"}, 
+                        timeout=1
+                    )
+                    
+                    if r.status_code == 200:
+                        u_data = r.json()
+                        
+                        # Récupération du nom d'affichage ou username
+                        name = u_data.get("global_name") or u_data.get("username") or name
+                        
+                        # Construction de l'URL de l'avatar
+                        av_hash = u_data.get("avatar")
+                        if av_hash:
+                            avatar = f"https://cdn.discordapp.com/avatars/{uid}/{av_hash}.png?size=64"
+                        else:
+                            # Avatar par défaut (couleur unie) basé sur l'ID
+                            default_idx = (int(uid) >> 22) % 6
+                            avatar = f"https://cdn.discordapp.com/embed/avatars/{default_idx}.png"
+                except Exception as e:
+                    print(f"Erreur fetch user {uid}: {e}")
+
+            enriched_scores.append({
+                "id": uid, 
+                "score": score, 
+                "name": name, 
+                "avatar": avatar
+            })
+
+        return render_template("leaderboard.html", scores=enriched_scores, current_user=session.get("user"))
 
     return app
 
