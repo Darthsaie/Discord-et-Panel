@@ -12,7 +12,8 @@ from shared.bot_core import UltimateBot
 # --- IMPORTS DES FONCTIONNALITÉS ---
 from shared.debate import run_debate 
 from shared.quiz import start_quiz, check_answer, get_top_scores
-from shared.recap import generate_recap 
+from shared.recap import generate_recap
+from shared.clash import clash_user  # <--- Import CLASH
 
 # --- CONFIGURATION API ---
 PANEL_API_URL = "http://bots-panel:5000/api/bot/tasks" 
@@ -93,8 +94,7 @@ class BotWithFeatures(UltimateBot):
         if self.initial_activity:
             await self.change_presence(activity=discord.Game(name=self.initial_activity))
             
-        # --- AUTO-SYNC FORCÉ ---
-        # Plus besoin de faire !sync à la main
+        # Auto-Sync
         self.loop.create_task(self.startup_sync())
 
         print(f"💀 [{self.persona_name.upper()}] Features, Scheduler & Activity activés.")
@@ -102,7 +102,6 @@ class BotWithFeatures(UltimateBot):
 
     async def startup_sync(self):
         await self.wait_until_ready()
-        # On copie les commandes globales sur chaque serveur visible pour une update immédiate
         print("🔄 Début de l'Auto-Sync des commandes...")
         for guild in self.guilds:
             try:
@@ -117,11 +116,10 @@ class BotWithFeatures(UltimateBot):
     async def on_message(self, message):
         if message.author.bot: return
         
-        # 1. Vérification réponse Quiz
+        # Quiz
         is_quiz_resp = await check_answer(message, self.openai_client, self.persona_name)
         if is_quiz_resp: return 
 
-        # 2. Comportement standard
         await super().on_message(message)
 
     # --- IA PERSONNALISÉE ---
@@ -205,7 +203,6 @@ class BotWithFeatures(UltimateBot):
                 await interaction.response.defer()
                 await run_debate(interaction, self.openai_client, self.openai_model, sujet, bot1.value, bot2.value)
 
-        # --- QUIZ ---
         @self.tree.command(name="quiz", description="Lancer un quiz de culture générale")
         async def slash_quiz(interaction: discord.Interaction):
             if await self.check_access(interaction):
@@ -222,12 +219,18 @@ class BotWithFeatures(UltimateBot):
                 if not top: txt += "Aucun score pour l'instant."
                 await interaction.response.send_message(txt)
 
-        # --- RECAP ---
         @self.tree.command(name="recap", description="Génère un Flash Info des dernières discussions")
         async def slash_recap(interaction: discord.Interaction):
             if await self.check_access(interaction):
                 await interaction.response.defer()
                 await generate_recap(interaction, self.openai_client, self.persona_name)
+
+        # --- CLASH (AJOUTÉ) ---
+        @self.tree.command(name="clash", description="Clash un membre du serveur")
+        async def slash_clash(interaction: discord.Interaction, victime: discord.User):
+            if await self.check_access(interaction):
+                await interaction.response.defer()
+                await clash_user(interaction, self.openai_client, self.persona_name, victime)
 
     # --- SCHEDULER ---
     @tasks.loop(seconds=10)
