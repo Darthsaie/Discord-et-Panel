@@ -1,4 +1,7 @@
 services:
+  # =========================================
+  # 1. HOMER (Discord & Twitch)
+  # =========================================
   homer:
     build:
       context: .
@@ -8,18 +11,41 @@ services:
     volumes:
       - ./shared:/app/shared
       - ./.env:/app/.env
-    env_file:
-      - .env
+    env_file: .env
     environment:
       BOT_KEY: homer
       PANEL_API_URL: http://bots-panel:5000
       PANEL_API_TOKEN: ${PANEL_API_TOKEN}
-    logging:
+    logging: &default-logging
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
+  homer-twitch:
+    build:
+      context: .
+      dockerfile: bots/homer/Dockerfile
+    container_name: homer-twitch
+    restart: always
+    command: >
+      sh -c "pip install twitchio && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('homer', os.getenv('PROMPT_HOMER')).run()\""
+    volumes:
+      - ./shared:/app/shared
+      - ./.env:/app/.env
+    env_file: .env
+    environment:
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+      - PANEL_API_URL=http://bots-panel:5000
+      - PANEL_API_TOKEN=${PANEL_API_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PROMPT_HOMER=${PROMPT_HOMER}
+    logging: *default-logging
+
+  # =========================================
+  # 2. CARTMAN (Discord & Twitch)
+  # =========================================
   cartman:
     build:
       context: .
@@ -29,18 +55,37 @@ services:
     volumes:
       - ./shared:/app/shared
       - ./.env:/app/.env
-    env_file:
-      - .env
+    env_file: .env
     environment:
       BOT_KEY: cartman
       PANEL_API_URL: http://bots-panel:5000
       PANEL_API_TOKEN: ${PANEL_API_TOKEN}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
+  cartman-twitch:
+    build:
+      context: .
+      dockerfile: bots/cartman/Dockerfile
+    container_name: cartman-twitch
+    restart: always
+    command: >
+      sh -c "pip install twitchio && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('cartman', os.getenv('PROMPT_CARTMAN')).run()\""
+    volumes:
+      - ./shared:/app/shared
+      - ./.env:/app/.env
+    env_file: .env
+    environment:
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+      - PANEL_API_URL=http://bots-panel:5000
+      - PANEL_API_TOKEN=${PANEL_API_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PROMPT_CARTMAN=${PROMPT_CARTMAN}
+    logging: *default-logging
+
+  # =========================================
+  # 3. DEADPOOL (Discord & Twitch)
+  # =========================================
   deadpool:
     build:
       context: .
@@ -50,18 +95,37 @@ services:
     volumes:
       - ./shared:/app/shared
       - ./.env:/app/.env
-    env_file:
-      - .env
+    env_file: .env
     environment:
       BOT_KEY: deadpool
       PANEL_API_URL: http://bots-panel:5000
       PANEL_API_TOKEN: ${PANEL_API_TOKEN}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
+  deadpool-twitch:
+    build:
+      context: .
+      dockerfile: bots/deadpool/Dockerfile
+    container_name: deadpool-twitch
+    restart: always
+    command: >
+      sh -c "pip install twitchio && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('deadpool', os.getenv('PROMPT_DEADPOOL')).run()\""
+    volumes:
+      - ./shared:/app/shared
+      - ./.env:/app/.env
+    env_file: .env
+    environment:
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+      - PANEL_API_URL=http://bots-panel:5000
+      - PANEL_API_TOKEN=${PANEL_API_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PROMPT_DEADPOOL=${PROMPT_DEADPOOL}
+    logging: *default-logging
+
+  # =========================================
+  # 4. YODA (Discord & Twitch)
+  # =========================================
   yoda:
     build:
       context: .
@@ -71,18 +135,37 @@ services:
     volumes:
       - ./shared:/app/shared
       - ./.env:/app/.env
-    env_file:
-      - .env
+    env_file: .env
     environment:
       BOT_KEY: yoda
       PANEL_API_URL: http://bots-panel:5000
       PANEL_API_TOKEN: ${PANEL_API_TOKEN}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
+  yoda-twitch:
+    build:
+      context: .
+      dockerfile: bots/yoda/Dockerfile
+    container_name: yoda-twitch
+    restart: always
+    command: >
+      sh -c "pip install twitchio && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('yoda', os.getenv('PROMPT_YODA')).run()\""
+    volumes:
+      - ./shared:/app/shared
+      - ./.env:/app/.env
+    env_file: .env
+    environment:
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+      - PANEL_API_URL=http://bots-panel:5000
+      - PANEL_API_TOKEN=${PANEL_API_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PROMPT_YODA=${PROMPT_YODA}
+    logging: *default-logging
+
+  # =========================================
+  # 5. PANEL WEB
+  # =========================================
   panel:
     build:
       context: ./panel_pro
@@ -95,10 +178,5 @@ services:
       - ./shared:/app/shared
     ports:
       - "5001:5000"
-    env_file:
-      - .env
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    env_file: .env
+    logging: *default-logging

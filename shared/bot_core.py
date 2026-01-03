@@ -99,8 +99,6 @@ class UltimateBot(commands.Bot):
 
         # --- BLOCAGE DES DMs (Chatbot) ---
         if isinstance(message.channel, discord.DMChannel):
-            # On ignore ou on répond une fois. Ici, je propose de répondre gentiment.
-            # Si tu veux le silence total, remplace par : return
             await message.channel.send("❌ Je ne discute pas en privé. Ajoute-moi sur un serveur !")
             return
         # ---------------------------------
@@ -174,4 +172,5 @@ class UltimateBot(commands.Bot):
         self.register_common_commands()
         token = os.getenv(self.token_env_var)
         if not token: raise ValueError(f"Token manquant pour {self.token_env_var}")
+        # J'ai supprimé la ligne qui causait le bug !
         self.run(token)
