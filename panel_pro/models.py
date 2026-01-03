@@ -113,7 +113,9 @@ class Subscription(Base):
     status: Mapped[str]     = mapped_column(String, default="trial")
     trial_until: Mapped[dt.datetime|None] = mapped_column(DateTime, nullable=True)
     
-    # Stripe dates
+    # Stripe
+    stripe_subscription_id: Mapped[str|None] = mapped_column(String, nullable=True, unique=True)
+    stripe_customer_id: Mapped[str|None] = mapped_column(String, nullable=True)
     current_period_end: Mapped[dt.datetime|None] = mapped_column(DateTime, nullable=True)
     cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False)
     
@@ -121,6 +123,19 @@ class Subscription(Base):
 
     guild: Mapped["Guild"]      = relationship()
     bot_type: Mapped["BotType"] = relationship()
+    
+    # NOUVELLE PROPRIÉTÉ - Calcul automatique des jours restants
+    @property
+    def days_left(self):
+        """Calcule les jours restants avant expiration"""
+        now = dt.datetime.utcnow()
+        if self.current_period_end:
+            delta = (self.current_period_end - now).days
+            return delta
+        elif self.trial_until:
+            delta = (self.trial_until - now).days
+            return delta
+        return None
 
 class TrialLock(Base):
     __tablename__ = "trial_locks"
@@ -321,7 +336,7 @@ def make_app():
         app.config["BOT_AVATARS"] = avatars
         return avatars
 
-    # --- STRIPE LOGIC RENFORCEE ---
+    # --- STRIPE LOGIC ---
     def _activate_subscription(db: Session, bot_key: str, guild_discord_id: str, current_period_end_ts: int = None):
         g = db.scalar(select(Guild).where(Guild.discord_id==guild_discord_id))
         b = db.scalar(select(BotType).where(BotType.key==bot_key))
@@ -507,7 +522,7 @@ def make_app():
                 flash("Bot/serveur introuvable.", "error")
                 return redirect(url_for("dashboard"))
         try:
-            # On passe les métadonnées pour être sûr de les retrouver
+            # METADATA CORRIGÉES - Sur subscription ET session
             sess = stripe.checkout.Session.create(
                 mode="subscription",
                 line_items=[{"price": PRICE_MAP[bot_key], "quantity": 1}],
@@ -515,8 +530,16 @@ def make_app():
                 cancel_url=STRIPE_CANCEL_URL,
                 allow_promotion_codes=True,
                 client_reference_id=f"{bot_key}:{guild_id}:{(user or {}).get('id')}",
-                subscription_data={"metadata": {"bot_key": bot_key, "guild_id": guild_id}},
-                metadata={"bot_key": bot_key, "guild_id": guild_id}
+                subscription_data={
+                    "metadata": {
+                        "bot_key": bot_key, 
+                        "guild_id": guild_id
+                    }
+                },
+                metadata={
+                    "bot_key": bot_key, 
+                    "guild_id": guild_id
+                }
             )
             return redirect(sess.url, code=303)
         except Exception as e:
@@ -528,7 +551,6 @@ def make_app():
         session_id = request.args.get("session_id")
         if STRIPE_AVAILABLE and session_id:
             try:
-                # Force le check immédiat au retour
                 sess = stripe.checkout.Session.retrieve(session_id)
                 meta = sess.get("metadata") or {}
                 bot_key, guild_id = meta.get("bot_key"), meta.get("guild_id")
@@ -579,86 +601,185 @@ def make_app():
             return redirect(url_for("dashboard"))
 
     # ===============================================
-    # WEBHOOK STRIPE ROBUSTE - RECUPERATION FORCEE
+    # WEBHOOK STRIPE ROBUSTE - VERSION COMPLÈTE
     # ===============================================
     @app.post("/stripe/webhook")
     def stripe_webhook():
-        if not (STRIPE_AVAILABLE and STRIPE_WEBHOOK_SECRET): return "not configured", 400
+        """
+        Webhook Stripe complet qui gère TOUS les events correctement
+        Docs: https://docs.stripe.com/billing/subscriptions/webhooks
+        """
+        if not (STRIPE_AVAILABLE and STRIPE_WEBHOOK_SECRET): 
+            return "not configured", 400
+        
         payload = request.get_data(as_text=True)
         sig = request.headers.get("Stripe-Signature", "")
-        try: event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-        except: return "invalid", 400
         
-        etype = event.get("type")
+        try: 
+            event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+        except Exception as e:
+            wlog(f"❌ Webhook signature verification failed: {e}")
+            return "invalid signature", 400
+        
+        event_type = event.get("type")
         data_obj = event["data"]["object"]
+        
+        wlog(f"📥 Stripe Event: {event_type} | ID: {data_obj.get('id')}")
 
-        # Fonction qui fait tout le travail proprement
-        def handle_sub_update(sub_id_or_obj):
+        # Fonction centrale de mise à jour
+        def sync_subscription_from_stripe(sub_id_or_obj):
+            """Synchronise une subscription depuis Stripe vers la DB"""
             try:
-                # 1. On récupère TOUJOURS l'objet frais depuis Stripe
+                # Toujours récupérer l'objet frais depuis Stripe
                 if isinstance(sub_id_or_obj, str):
-                    sub = stripe.Subscription.retrieve(sub_id_or_obj)
+                    stripe_sub = stripe.Subscription.retrieve(sub_id_or_obj)
                 else:
-                    # Même si on a l'objet, on reload pour être sûr (notamment metadata)
-                    sub = stripe.Subscription.retrieve(sub_id_or_obj.id)
+                    # Reload pour avoir les metadata à jour
+                    stripe_sub = stripe.Subscription.retrieve(sub_id_or_obj.id)
                 
-                meta = sub.metadata or {}
+                # Récupérer les métadonnées
+                meta = stripe_sub.metadata or {}
                 bot_key = meta.get("bot_key")
                 guild_id = meta.get("guild_id")
                 
                 # Si pas de metadata, on ne peut rien faire
                 if not (bot_key and guild_id):
-                    print(f"[WEBHOOK] Ignored sub {sub.id}: missing metadata")
-                    return
+                    wlog(f"⚠️  Sub {stripe_sub.id} n'a pas de metadata (bot_key/guild_id)")
+                    return False
+
+                wlog(f"🔄 Syncing {bot_key}@{guild_id} | Stripe Status: {stripe_sub.status}")
 
                 with Session(app.engine) as db:
-                    g = db.scalar(select(Guild).where(Guild.discord_id==guild_id))
-                    b = db.scalar(select(BotType).where(BotType.key==bot_key))
+                    # Trouver le guild et bot_type
+                    g = db.scalar(select(Guild).where(Guild.discord_id == guild_id))
+                    b = db.scalar(select(BotType).where(BotType.key == bot_key))
                     
-                    if g and b:
-                        s = db.scalar(select(Subscription).where((Subscription.guild_id==g.id) & (Subscription.bot_type_id==b.id)))
-                        if not s:
-                            s = Subscription(guild_id=g.id, bot_type_id=b.id)
-                            db.add(s)
-                        
-                        # Mapping des statuts Stripe -> Panel
-                        st = sub.status
-                        if st in ("active", "trialing", "past_due"):
-                            s.status = "active"
-                        elif st in ("canceled", "unpaid", "incomplete_expired"):
-                            s.status = "canceled"
-                        
-                        s.cancel_at_period_end = sub.cancel_at_period_end
-                        if sub.current_period_end:
-                            s.current_period_end = dt.datetime.utcfromtimestamp(sub.current_period_end)
-                        
-                        db.commit()
-                        print(f"[WEBHOOK] Updated {bot_key}@{guild_id} -> {s.status}")
+                    if not g:
+                        wlog(f"⚠️  Guild {guild_id} pas trouvé, création...")
+                        g = Guild(discord_id=guild_id, name=f"Guild {guild_id}")
+                        db.add(g)
+                        db.flush()
+                    
+                    if not b:
+                        wlog(f"⚠️  BotType {bot_key} pas trouvé, création...")
+                        b = BotType(key=bot_key, name=bot_key.capitalize())
+                        db.add(b)
+                        db.flush()
+                    
+                    # Trouver ou créer la subscription
+                    s = db.scalar(
+                        select(Subscription).where(
+                            (Subscription.guild_id == g.id) & 
+                            (Subscription.bot_type_id == b.id)
+                        )
+                    )
+                    
+                    if not s:
+                        wlog(f"🆕 Création nouvelle subscription")
+                        s = Subscription(guild_id=g.id, bot_type_id=b.id)
+                        db.add(s)
+                    
+                    # Mapper les statuts Stripe
+                    stripe_status = stripe_sub.status
+                    if stripe_status in ("active", "trialing"):
+                        s.status = "active"
+                    elif stripe_status == "past_due":
+                        s.status = "active"  # On garde actif mais on note le retard
+                        wlog(f"⚠️  Paiement en retard pour {guild_id}")
+                    elif stripe_status in ("canceled", "unpaid", "incomplete_expired"):
+                        s.status = "canceled"
+                    else:
+                        s.status = "canceled"
+                    
+                    # Sauvegarder le Stripe ID
+                    s.stripe_subscription_id = stripe_sub.id
+                    s.stripe_customer_id = stripe_sub.customer
+                    
+                    # Dates importantes
+                    if stripe_sub.current_period_end:
+                        s.current_period_end = dt.datetime.utcfromtimestamp(
+                            stripe_sub.current_period_end
+                        )
+                        wlog(f"📅 Fin période: {s.current_period_end.strftime('%d/%m/%Y')}")
+                    
+                    if stripe_sub.trial_end:
+                        s.trial_until = dt.datetime.utcfromtimestamp(
+                            stripe_sub.trial_end
+                        )
+                    
+                    # Annulation prévue
+                    s.cancel_at_period_end = stripe_sub.cancel_at_period_end
+                    
+                    db.commit()
+                    
+                    wlog(f"✅ Sync OK: {bot_key}@{guild_id} -> {s.status} (expire: {s.current_period_end})")
+                    return True
+                    
             except Exception as e:
-                print(f"[WEBHOOK ERROR] {e}")
+                wlog(f"❌ Erreur sync: {e}")
+                import traceback
+                traceback.print_exc()
+                return False
 
-        # EVENTS PRIS EN CHARGE
-        if etype in ("customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"):
-            handle_sub_update(data_obj)
+        # GÉRER LES DIFFÉRENTS EVENTS
+        handled = False
         
-        elif etype == "checkout.session.completed":
-            # Parfois les métadonnées sont sur la session, mais le sub ID est fiable
-            sub_id = data_obj.get("subscription")
-            if sub_id: handle_sub_update(sub_id)
+        # Events de subscription
+        if event_type in (
+            "customer.subscription.created",
+            "customer.subscription.updated",
+            "customer.subscription.deleted"
+        ):
+            handled = sync_subscription_from_stripe(data_obj)
         
-        elif etype in ("invoice.payment_succeeded", "invoice.paid"):
+        # Checkout complété
+        elif event_type == "checkout.session.completed":
             sub_id = data_obj.get("subscription")
-            if sub_id: handle_sub_update(sub_id)
-
+            if sub_id:
+                handled = sync_subscription_from_stripe(sub_id)
+            else:
+                # Parfois le sub_id arrive après, on utilise les metadata de la session
+                meta = data_obj.get("metadata", {})
+                bot_key = meta.get("bot_key")
+                guild_id = meta.get("guild_id")
+                if bot_key and guild_id:
+                    wlog(f"⚠️  Checkout sans sub_id immédiat, activation manuelle")
+                    with Session(app.engine) as db:
+                        _activate_subscription(db, bot_key, guild_id, None)
+                    handled = True
+        
+        # Invoice payée (renouvellement)
+        elif event_type in ("invoice.paid", "invoice.payment_succeeded"):
+            sub_id = data_obj.get("subscription")
+            if sub_id:
+                handled = sync_subscription_from_stripe(sub_id)
+        
+        # Invoice échouée
+        elif event_type == "invoice.payment_failed":
+            sub_id = data_obj.get("subscription")
+            if sub_id:
+                # On sync quand même pour mettre le statut à jour
+                handled = sync_subscription_from_stripe(sub_id)
+        
+        # Trial qui se termine bientôt (3 jours avant)
+        elif event_type == "customer.subscription.trial_will_end":
+            wlog(f"⚠️  Trial se termine bientôt: {data_obj.get('id')}")
+            # Tu peux envoyer une notif Discord ici
+            handled = True
+        
+        if handled:
+            wlog(f"✅ Event {event_type} traité avec succès")
+        else:
+            wlog(f"⚠️  Event {event_type} non géré ou échoué")
+        
         return "", 200
 
-    # --- INVITATION CORRIGEE (PERMISSION 8) ---
+    # --- INVITATION ---
     @app.get("/invite/<bot_key>/<guild_id>")
     def invite(bot_key, guild_id):
         bot_def = BOT_DEFS.get(bot_key)
         if not bot_def: return redirect(url_for("dashboard"))
         cid = bot_def["client_id"]
-        # Utilisation de la permission 8 (Administrateur) pour éviter les soucis
         oauth = f"https://discord.com/api/oauth2/authorize?client_id={cid}&permissions=8&scope=bot&guild_id={guild_id}&disable_guild_select=true"
         return redirect(oauth)
 
@@ -825,22 +946,62 @@ def make_app():
                 flash("Erreur.", "error")
         return redirect(url_for("scheduler_list"))
 
+    # ===============================================
+    # ROUTES ADMIN
+    # ===============================================
     @app.get("/admin")
     @admin_required
-    def admin_index(): return redirect(url_for("admin_subs"))
+    def admin_index(): 
+        return redirect(url_for("admin_subs"))
 
     @app.get("/admin/subs")
     @admin_required
     def admin_subs():
+        """Page admin principale avec stats"""
+        page = request.args.get('page', 1, type=int)
+        per_page = 50
+        
         with Session(app.engine) as db:
-            subs = db.scalars(select(Subscription).options(selectinload(Subscription.guild),selectinload(Subscription.bot_type)).order_by(Subscription.id.desc())).all()
-            locks = db.scalars(select(TrialLock).order_by(TrialLock.id.desc())).all()
+            # Query avec pagination
+            query = select(Subscription).options(
+                selectinload(Subscription.guild),
+                selectinload(Subscription.bot_type)
+            ).order_by(Subscription.id.desc())
             
+            all_subs = db.scalars(query).all()
+            
+            # Pagination manuelle
+            total = len(all_subs)
+            start = (page - 1) * per_page
+            end = start + per_page
+            subs = all_subs[start:end]
+            pages = (total + per_page - 1) // per_page
+            
+            # Stats
+            stats = {
+                'total': total,
+                'active': len([s for s in all_subs if s.status in ['active', 'lifetime']]),
+                'trial': len([s for s in all_subs if s.status in ['trial', 'trialing']]),
+                'canceled': len([s for s in all_subs if s.status in ['canceled', 'unpaid', 'incomplete']])
+            }
+            
+            locks = db.scalars(select(TrialLock).order_by(TrialLock.id.desc())).all()
             bot_avatars = _get_bot_avatar_urls()
             all_guilds = db.scalars(select(Guild)).all()
             guild_map = {g.discord_id: g.name for g in all_guilds}
 
-        return render_template("admin_subs.html", subs=subs, locks=locks, bot_defs=BOT_DEFS, bot_avatars=bot_avatars, guild_map=guild_map, now=dt.datetime.utcnow())
+        return render_template(
+            "admin_subs.html",
+            subs=subs,
+            locks=locks,
+            bot_defs=BOT_DEFS,
+            bot_avatars=bot_avatars,
+            guild_map=guild_map,
+            now=dt.datetime.utcnow(),
+            page=page,
+            pages=pages,
+            stats=stats
+        )
 
     @app.post("/admin/subs/create")
     @admin_required
@@ -852,6 +1013,7 @@ def make_app():
         except: days = 0
         st = (request.form.get("status") or "active").strip().lower()
         if st not in ("active", "trial", "canceled", "lifetime"): return redirect(url_for("admin_subs"))
+        
         with Session(app.engine) as db:
             g = db.scalar(select(Guild).where(Guild.discord_id == guild_id))
             if not g: 
@@ -872,7 +1034,6 @@ def make_app():
             if st == "active":
                 if days > 0:
                     s.current_period_end = dt.datetime.utcnow() + dt.timedelta(days=days)
-                    s.cancel_at_period_end = True 
                 else:
                     s.current_period_end = None 
             db.commit()
@@ -881,191 +1042,174 @@ def make_app():
     @app.post("/admin/subs/sync_stripe/<int:sub_id>")
     @admin_required
     def admin_sync_stripe(sub_id: int):
+        """Synchronisation manuelle améliorée avec Stripe"""
         if not (STRIPE_AVAILABLE and STRIPE_SECRET_KEY):
-            flash("Stripe non configuré.", "error")
-            return redirect(url_for("admin_subs"))
+            return jsonify({'success': False, 'error': 'Stripe non configuré'}), 400
+        
         with Session(app.engine) as db:
             s = db.get(Subscription, sub_id)
-            if not s: return redirect(url_for("admin_subs"))
+            if not s: 
+                return jsonify({'success': False, 'error': 'Subscription introuvable'}), 404
+            
             try:
-                q = f"metadata['bot_key']:'{s.bot_type.key}' AND metadata['guild_id']:'{s.guild.discord_id}'"
-                res = stripe.Subscription.search(query=q, limit=5)
-                items = getattr(res, "data", []) or []
-                if not items:
-                    flash(f"🔍 INTROUVABLE. Recherche: {q}", "error")
-                    return redirect(url_for("admin_subs"))
-                items.sort(key=lambda x: x.created, reverse=True)
-                target_sub = items[0]
-                full_sub = stripe.Subscription.retrieve(target_sub.id)
-                try: sub_dict = full_sub.to_dict()
-                except: sub_dict = dict(full_sub)
-                st = sub_dict.get("status")
-                ts = sub_dict.get("current_period_end")
-                if not ts: ts = sub_dict.get("billing_cycle_anchor")
-                if not ts: ts = sub_dict.get("cancel_at")
-                cancel = sub_dict.get("cancel_at_period_end")
-                debug_msg = f"DEBUG STRIPE > ID: {target_sub.id} | Status: {st} | Timestamp: {ts}"
-                if ts: debug_msg += f" ({dt.datetime.utcfromtimestamp(ts).strftime('%d/%m/%Y')})"
-                else: debug_msg += " (DATE NULLE !)"
-                flash(debug_msg, "warn") 
-                new_status = "active" if st in ("active", "trialing", "past_due") else "canceled"
-                new_date = dt.datetime.utcfromtimestamp(ts) if ts else None
-                stmt = (update(Subscription).where(Subscription.id == sub_id).values(status=new_status, cancel_at_period_end=bool(cancel), current_period_end=new_date))
-                db.execute(stmt)
+                # Si on a déjà un stripe_subscription_id, on l'utilise
+                if s.stripe_subscription_id:
+                    stripe_sub = stripe.Subscription.retrieve(s.stripe_subscription_id)
+                else:
+                    # Sinon on cherche par metadata
+                    query = f"metadata['bot_key']:'{s.bot_type.key}' AND metadata['guild_id']:'{s.guild.discord_id}'"
+                    res = stripe.Subscription.search(query=query, limit=5)
+                    items = getattr(res, "data", []) or []
+                    
+                    if not items:
+                        return jsonify({
+                            'success': False, 
+                            'error': f'Aucune sub Stripe trouvée. Query: {query}'
+                        }), 404
+                    
+                    # Prendre la plus récente
+                    items.sort(key=lambda x: x.created, reverse=True)
+                    stripe_sub = items[0]
+                    
+                    # Sauvegarder l'ID
+                    s.stripe_subscription_id = stripe_sub.id
+                
+                # Synchroniser les données
+                stripe_status = stripe_sub.status
+                
+                if stripe_status in ("active", "trialing", "past_due"):
+                    s.status = "active"
+                elif stripe_status in ("canceled", "unpaid", "incomplete_expired"):
+                    s.status = "canceled"
+                
+                s.stripe_customer_id = stripe_sub.customer
+                s.cancel_at_period_end = stripe_sub.cancel_at_period_end
+                
+                if stripe_sub.current_period_end:
+                    s.current_period_end = dt.datetime.utcfromtimestamp(
+                        stripe_sub.current_period_end
+                    )
+                
+                if stripe_sub.trial_end:
+                    s.trial_until = dt.datetime.utcfromtimestamp(
+                        stripe_sub.trial_end
+                    )
+                
                 db.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'status': s.status,
+                    'period_end': s.current_period_end.isoformat() if s.current_period_end else None,
+                    'stripe_id': s.stripe_subscription_id
+                })
+                
             except Exception as e:
-                flash(f"💥 ERREUR PYTHON : {str(e)}", "error")
-        return redirect(url_for("admin_subs"))
+                return jsonify({'success': False, 'error': str(e)}), 400
 
     @app.post("/admin/subs/link_stripe/<int:sub_id>")
     @admin_required
     def admin_link_stripe(sub_id: int):
+        """Lier manuellement un Stripe ID"""
         stripe_id = request.form.get("stripe_id", "").strip()
-        if not (STRIPE_AVAILABLE and STRIPE_SECRET_KEY and stripe_id):
-            flash("Configuration Stripe ou ID manquant.", "error")
+        if not stripe_id.startswith("sub_"):
+            flash("ID Stripe invalide", "error")
             return redirect(url_for("admin_subs"))
+        
         with Session(app.engine) as db:
             s = db.get(Subscription, sub_id)
-            if not s: return redirect(url_for("admin_subs"))
+            if not s:
+                flash("Subscription introuvable", "error")
+                return redirect(url_for("admin_subs"))
+            
             try:
-                sub = stripe.Subscription.retrieve(stripe_id)
-                stripe.Subscription.modify(stripe_id, metadata={"bot_key": s.bot_type.key, "guild_id": s.guild.discord_id})
-                ts = sub.get("current_period_end")
-                cancel = sub.get("cancel_at_period_end")
-                status = sub.get("status")
-                new_status = "active" if status in ("active", "trialing", "past_due") else "canceled"
-                new_date = dt.datetime.utcfromtimestamp(ts) if ts else None
-                s.status = new_status
-                s.current_period_end = new_date
-                s.cancel_at_period_end = bool(cancel)
+                # Récupérer et synchroniser
+                stripe_sub = stripe.Subscription.retrieve(stripe_id)
+                
+                s.stripe_subscription_id = stripe_id
+                s.stripe_customer_id = stripe_sub.customer
+                
+                stripe_status = stripe_sub.status
+                if stripe_status in ("active", "trialing", "past_due"):
+                    s.status = "active"
+                elif stripe_status in ("canceled", "unpaid", "incomplete_expired"):
+                    s.status = "canceled"
+                
+                if stripe_sub.current_period_end:
+                    s.current_period_end = dt.datetime.utcfromtimestamp(
+                        stripe_sub.current_period_end
+                    )
+                
+                s.cancel_at_period_end = stripe_sub.cancel_at_period_end
+                
                 db.commit()
-                flash(f"✅ Abonnement lié et synchronisé ! (Fin : {new_date})", "ok")
+                flash("✅ Stripe ID lié et synchronisé", "ok")
+                
             except Exception as e:
-                flash(f"Erreur Liaison : {str(e)}", "error")
+                flash(f"❌ Erreur: {str(e)}", "error")
+        
         return redirect(url_for("admin_subs"))
 
     @app.post("/admin/subs/set_status/<int:sub_id>")
     @admin_required
     def admin_set_status(sub_id: int):
-        st = (request.form.get("status") or "").strip().lower()
-        if st not in ("active", "trial", "canceled", "lifetime"): return redirect(url_for("admin_subs"))
+        """Changer le statut d'un abonnement"""
+        new_status = request.form.get("status")
+        
         with Session(app.engine) as db:
             s = db.get(Subscription, sub_id)
             if s:
-                s.status = st
-                if st == "trial": s.trial_until = dt.datetime.utcnow() + dt.timedelta(days=TRIAL_DAYS)
-                else: s.trial_until = None
-                s.current_period_end = None 
-                s.cancel_at_period_end = False
+                s.status = new_status
+                if new_status == "canceled":
+                    s.trial_until = None
+                    s.current_period_end = None
                 db.commit()
+        
         return redirect(url_for("admin_subs"))
 
     @app.post("/admin/subs/prolong/<int:sub_id>")
     @admin_required
-    def admin_prolong_trial(sub_id: int):
-        try: days = int(request.form.get("days", "0"))
-        except: days = 0
+    def admin_prolong(sub_id: int):
+        """Prolonger l'essai"""
+        days = int(request.form.get("days", 3))
+        
         with Session(app.engine) as db:
             s = db.get(Subscription, sub_id)
-            if s and s.status == "trial":
-                base = s.trial_until or dt.datetime.utcnow()
-                s.trial_until = base + dt.timedelta(days=days)
+            if s:
+                if s.trial_until:
+                    s.trial_until = s.trial_until + dt.timedelta(days=days)
+                else:
+                    s.trial_until = dt.datetime.utcnow() + dt.timedelta(days=days)
                 db.commit()
-                flash(f"Ajouté {days} jours d'essai.", "ok")
-            else:
-                flash("Impossible: pas en essai.", "error")
+        
         return redirect(url_for("admin_subs"))
 
     @app.post("/admin/subs/delete/<int:sub_id>")
     @admin_required
     def admin_delete_sub(sub_id: int):
+        """Supprimer un abonnement"""
         with Session(app.engine) as db:
             s = db.get(Subscription, sub_id)
-            if s: db.delete(s); db.commit()
-        return redirect(url_for("admin_subs"))
+            if s:
+                db.delete(s)
+                db.commit()
+        
+        return jsonify({'success': True})
 
     @app.post("/admin/locks/release/<int:lock_id>")
     @admin_required
     def admin_release_lock(lock_id: int):
+        """Libérer un lock d'essai"""
         with Session(app.engine) as db:
-            l = db.get(TrialLock, lock_id)
-            if l: db.delete(l); db.commit()
-        return redirect(url_for("admin_subs"))
-
-    @app.get("/api/discord/channels/<guild_id>")
-    @login_required
-    def api_get_channels(guild_id):
-        if guild_id not in (session.get("admin_guild_ids") or []):
-            return jsonify({"error": "Forbidden"}), 403
-        channels = []
-        for key, token in BOT_TOKENS.items():
-            if not token: continue
-            try:
-                r = requests.get(f"{DISCORD_API_BASE}/guilds/{guild_id}/channels", headers={"Authorization": f"Bot {token}"}, timeout=3)
-                if r.status_code == 200:
-                    data = r.json()
-                    filtered = [c for c in data if c.get("type") in (0, 5)]
-                    filtered.sort(key=lambda x: x.get("position", 0))
-                    channels = [{"id": c["id"], "name": c["name"]} for c in filtered]
-                    break 
-            except: continue
-        return jsonify(channels)
-    
-    @app.route('/privacy')
-    def privacy_policy():
-        return render_template('privacy.html')
-
-    @app.get("/leaderboard")
-    def leaderboard():
-        filepath = "/app/shared/leaderboard.json"
-        scores = {}
-        try:
-            if os.path.exists(filepath):
-                with open(filepath, "r") as f:
-                    scores = json.load(f)
-        except Exception as e:
-            print(f"Erreur lecture leaderboard: {e}")
-
-        sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:50]
-        enriched_scores = []
+            lock = db.get(TrialLock, lock_id)
+            if lock:
+                db.delete(lock)
+                db.commit()
         
-        token = HOMER_TOKEN or CARTMAN_TOKEN or DEADPOOL_TOKEN or YODA_TOKEN
-        
-        for uid, score in sorted_scores:
-            name = f"Joueur {uid}"
-            avatar = None
-            if token and uid.isdigit():
-                try:
-                    r = requests.get(
-                        f"https://discord.com/api/users/{uid}", 
-                        headers={"Authorization": f"Bot {token}"}, 
-                        timeout=1
-                    )
-                    
-                    if r.status_code == 200:
-                        u_data = r.json()
-                        name = u_data.get("global_name") or u_data.get("username") or name
-                        av_hash = u_data.get("avatar")
-                        if av_hash:
-                            avatar = f"https://cdn.discordapp.com/avatars/{uid}/{av_hash}.png?size=64"
-                        else:
-                            default_idx = (int(uid) >> 22) % 6
-                            avatar = f"https://cdn.discordapp.com/embed/avatars/{default_idx}.png"
-                except Exception as e:
-                    print(f"Erreur fetch user {uid}: {e}")
-
-            enriched_scores.append({
-                "id": uid, 
-                "score": score, 
-                "name": name, 
-                "avatar": avatar
-            })
-
-        return render_template("leaderboard.html", scores=enriched_scores, current_user=session.get("user"))
+        return jsonify({'success': True})
 
     return app
 
-app = make_app()
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT","5000")))
+    app = make_app()
+    app.run(debug=True, host="0.0.0.0", port=5000)

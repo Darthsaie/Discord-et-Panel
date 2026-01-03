@@ -12,7 +12,6 @@
   }
   .dash-sub { color: var(--secondary); margin-top: 5px; font-size: 1.1rem; }
 
-  /* Bouton Programmateur Amélioré */
   .btn-scheduler-hero {
     background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
     color: white; border: none; padding: 14px 28px; border-radius: 16px;
@@ -25,14 +24,12 @@
     box-shadow: 0 15px 40px rgba(236, 72, 153, 0.5); 
   }
 
-  /* Conteneur Serveur Style Glass */
   .guild-card {
-    background: rgba(30, 41, 59, 0.4); /* Plus transparent */
+    background: rgba(30, 41, 59, 0.4);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.05);
     border-radius: 24px; margin-bottom: 50px; overflow: hidden;
     box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-    transition: transform 0.3s;
   }
   
   .guild-header {
@@ -49,7 +46,6 @@
   .guild-info h2 { margin: 0; font-size: 1.3rem; color: white; }
   .guild-id { font-family: monospace; font-size: 0.85rem; color: var(--secondary); opacity: 0.7; margin-top: 4px;}
 
-  /* Grille des Bots */
   .bots-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -68,7 +64,6 @@
   .bot-head { display: flex; align-items: center; gap: 15px; }
   .bot-img { width: 48px; height: 48px; border-radius: 12px; background: #222; object-fit: cover; }
   
-  /* Badges */
   .status-badge {
     font-size: 0.7rem; font-weight: 800; padding: 4px 10px; border-radius: 20px; 
     text-transform: uppercase; display: inline-block; margin-top: 4px;
@@ -82,7 +77,7 @@
   }
   .st-inactive { background: rgba(255,255,255,0.05); color: #94a3b8; }
 
-  .bot-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
+  .bot-actions { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
   
   .action-btn {
     width: 100%; padding: 10px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; 
@@ -96,8 +91,16 @@
   }
   .btn-subscribe:hover { background: #4752c4; box-shadow: 0 6px 20px rgba(88, 101, 242, 0.4); }
 
-  .btn-inv { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: var(--secondary); }
-  .btn-inv:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,0.05); }
+  /* FIX: Bouton Inviter toujours visible et distinct */
+  .btn-inv { 
+    background: rgba(255,255,255,0.1); 
+    border: 1px solid rgba(255,255,255,0.2); 
+    color: #fff; 
+  }
+  .btn-inv:hover { 
+    background: rgba(255,255,255,0.2); 
+    border-color: #fff; 
+  }
 
   .btn-manage { background: rgba(255,255,255,0.1); color: #fff; }
   .btn-manage:hover { background: rgba(255,255,255,0.2); }
@@ -182,7 +185,9 @@
           </div>
 
           <div class="bot-actions">
-            <a href="{{ url_for('invite', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" class="action-btn btn-inv">Inviter</a>
+            <a href="{{ url_for('invite', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" class="action-btn btn-inv">
+               <i class="ph ph-plus" style="margin-right:8px;"></i> Inviter sur le serveur
+            </a>
 
             {% if is_active %}
               <form method="post" action="{{ url_for('billing_portal', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
@@ -190,12 +195,12 @@
               </form>
             {% elif is_trial %}
               <form method="post" action="{{ url_for('subscribe', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
-                <button class="action-btn btn-subscribe">S'abonner</button>
+                <button class="action-btn btn-subscribe">S'abonner (VIP)</button>
               </form>
             {% else %}
               {% if not has_any_active and not trial_ever and not active_lock %}
                 <form method="post" action="{{ url_for('trial_start', guild_id=g.discord_id, bot_key=bot.key) }}" style="width:100%">
-                  <button class="action-btn btn-trial">Essai Gratuit</button>
+                  <button class="action-btn btn-trial">Activer l'Essai Gratuit</button>
                 </form>
               {% else %}
                 <form method="post" action="{{ url_for('subscribe', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
