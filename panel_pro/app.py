@@ -86,6 +86,8 @@ class Guild(Base):
     id: Mapped[int]         = mapped_column(Integer, primary_key=True)
     discord_id: Mapped[str] = mapped_column(String, unique=True, index=True)
     name: Mapped[str]       = mapped_column(String)
+    platform: Mapped[str]   = mapped_column(String, default="discord")
+    icon_url: Mapped[str]   = mapped_column(String, nullable=True)
 
 class BotType(Base):
     __tablename__ = "bot_types"
@@ -275,7 +277,7 @@ def make_app():
                 existing = db.scalar(select(Guild).where(Guild.discord_id == gid))
                 if not existing:
                     name = next((x.get("name","") for x in guilds if str(x.get("id"))==gid), "")
-                    db.add(Guild(discord_id=gid, name=name))
+                    db.add(Guild(discord_id=gid, name=name, platform="discord"))
             db.commit()
         return u
 
@@ -538,9 +540,15 @@ def make_app():
                 if sub_id:
                     if isinstance(sub_id, str):
                         sub_obj = stripe.Subscription.retrieve(sub_id)
-                        ts = sub_obj.current_period_end
+                        try:
+                            ts = sub_obj['items']['data'][0]['current_period_end']
+                        except (KeyError, IndexError):
+                            ts = None
                     else:
-                        ts = sub_id.current_period_end
+                        try:
+                            ts = sub_id['items']['data'][0]['current_period_end']
+                        except (KeyError, IndexError):
+                            ts = None
                 
                 if bot_key and guild_id:
                     with Session(app.engine) as db:
@@ -621,7 +629,7 @@ def make_app():
                     
                     if not g:
                         wlog(f"⚠️  Guild {guild_id} pas trouvé, création...")
-                        g = Guild(discord_id=guild_id, name=f"Guild {guild_id}")
+                        g = Guild(discord_id=guild_id, name=f"Guild {guild_id}", platform="discord")
                         db.add(g)
                         db.flush()
                     
@@ -657,11 +665,13 @@ def make_app():
                     s.stripe_subscription_id = stripe_sub.id
                     s.stripe_customer_id = stripe_sub.customer
                     
-                    if stripe_sub.current_period_end:
-                        s.current_period_end = dt.datetime.utcfromtimestamp(
-                            stripe_sub.current_period_end
-                        )
+                    # ✅ FIX : Récupère current_period_end depuis items
+                    try:
+                        period_end = stripe_sub['items']['data'][0]['current_period_end']
+                        s.current_period_end = dt.datetime.utcfromtimestamp(period_end)
                         wlog(f"📅 Fin période: {s.current_period_end.strftime('%d/%m/%Y')}")
+                    except (KeyError, IndexError, TypeError):
+                        wlog(f"⚠️  current_period_end non disponible")
                     
                     if stripe_sub.trial_end:
                         s.trial_until = dt.datetime.utcfromtimestamp(
@@ -748,7 +758,7 @@ def make_app():
                     elif s.status == "active": is_allowed = True
                     elif s.status == "trial" and s.trial_until and s.trial_until > now: is_allowed = True
                     elif s.status == "canceled" and s.current_period_end and s.current_period_end > now: is_allowed = True
-
+                    
                     if is_allowed:
                         allowed.append(int(s.guild.discord_id))
                         
@@ -959,7 +969,7 @@ def make_app():
         with Session(app.engine) as db:
             g = db.scalar(select(Guild).where(Guild.discord_id == guild_id))
             if not g: 
-                g = Guild(discord_id=guild_id, name=guild_name if guild_name else f"Guild {guild_id}")
+                g = Guild(discord_id=guild_id, name=guild_name if guild_name else f"Guild {guild_id}", platform="discord")
                 db.add(g); db.commit()
             b = db.scalar(select(BotType).where(BotType.key == bot_key))
             if not b: 
@@ -1020,10 +1030,12 @@ def make_app():
                 s.stripe_customer_id = stripe_sub.customer
                 s.cancel_at_period_end = stripe_sub.cancel_at_period_end
                 
-                if stripe_sub.current_period_end:
-                    s.current_period_end = dt.datetime.utcfromtimestamp(
-                        stripe_sub.current_period_end
-                    )
+                # ✅ FIX : Récupère depuis items
+                try:
+                    period_end = stripe_sub['items']['data'][0]['current_period_end']
+                    s.current_period_end = dt.datetime.utcfromtimestamp(period_end)
+                except (KeyError, IndexError, TypeError):
+                    pass
                 
                 if stripe_sub.trial_end:
                     s.trial_until = dt.datetime.utcfromtimestamp(
@@ -1068,10 +1080,12 @@ def make_app():
                 elif stripe_status in ("canceled", "unpaid", "incomplete_expired"):
                     s.status = "canceled"
                 
-                if stripe_sub.current_period_end:
-                    s.current_period_end = dt.datetime.utcfromtimestamp(
-                        stripe_sub.current_period_end
-                    )
+                # ✅ FIX : Récupère depuis items
+                try:
+                    period_end = stripe_sub['items']['data'][0]['current_period_end']
+                    s.current_period_end = dt.datetime.utcfromtimestamp(period_end)
+                except (KeyError, IndexError, TypeError):
+                    pass
                 
                 s.cancel_at_period_end = stripe_sub.cancel_at_period_end
                 

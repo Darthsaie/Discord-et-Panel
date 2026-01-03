@@ -71,6 +71,7 @@
     .nav-item { padding: 12px 16px; border-radius: 10px; color: var(--secondary); font-weight: 600; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
     .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
     .nav-item.active { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+    .nav-item.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
     .nav-item i { font-size: 1.3rem; } 
 
     .user-section-wrapper { margin-top: auto; display: flex; flex-direction: column; gap: 15px; flex-shrink: 0; padding-top: 20px; }
@@ -179,9 +180,10 @@
         <i class="ph ph-calendar-plus"></i> Programmateur
       </a>
       
-      <a href="{{ url_for('leaderboard') }}" class="nav-item {{ 'active' if request.endpoint == 'leaderboard' else '' }}">
+      <!-- Bientôt disponible -->
+      <span class="nav-item disabled" title="Bientôt disponible">
         <i class="ph ph-trophy"></i> Classement
-      </a>
+      </span>
       
       {% if session.get('admin_guild_ids') and dev_mode %}
       <div style="margin:10px 0; border-top:1px solid rgba(255,255,255,0.1);"></div>
@@ -241,8 +243,6 @@
 
     <footer class="footer">
       © 2025 4U BOT — Hébergé par <a href="#">darthsaie</a>
-      <span style="margin: 0 8px; opacity: 0.5;">|</span>
-      <a href="{{ url_for('privacy_policy') }}">Politique de confidentialité</a>
     </footer>
   </div>
 
