@@ -445,7 +445,7 @@ def make_app():
     @app.get("/leaderboard")
     def leaderboard():
         """Page du classement quiz"""
-        leaderboard_file = os.path.join(os.path.dirname(__file__), "..", "shared", "leaderboard.json")
+        leaderboard_file = "/app/shared/leaderboard.json"
         
         scores = []
         try:
@@ -1138,7 +1138,7 @@ def make_app():
 
         return redirect(url_for("admin_subs"))
 
-    @app.post("/admin/subs/sync-stripe/<int:sub_id>")
+    @app.post("/admin/subs/sync_stripe/<int:sub_id>")
     @admin_required
     def admin_sync_stripe(sub_id: int):
         if not (STRIPE_AVAILABLE and STRIPE_SECRET_KEY):
@@ -1196,7 +1196,7 @@ def make_app():
             except Exception as e:
                 return jsonify({"success": False, "error": str(e)}), 400
 
-    @app.post("/admin/subs/link-stripe/<int:sub_id>")
+    @app.post("/admin/subs/link_stripe/<int:sub_id>")
     @admin_required
     def admin_link_stripe(sub_id: int):
         stripe_id = (request.form.get("stripe_id") or "").strip()
@@ -1236,7 +1236,7 @@ def make_app():
 
         return redirect(url_for("admin_subs"))
 
-    @app.post("/admin/subs/set-status/<int:sub_id>")
+    @app.post("/admin/subs/set_status/<int:sub_id>")
     @admin_required
     def admin_set_status(sub_id: int):
         new_status = request.form.get("status")
