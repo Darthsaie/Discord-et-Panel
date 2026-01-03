@@ -1,218 +1,942 @@
 {% extends "base.html" %}
 
 {% block content %}
-<style>
-  .dash-header { 
-    display:flex; justify-content:space-between; align-items:end; margin-bottom: 40px; 
-  }
-  .dash-title { 
-    font-size: 2.2rem; font-weight: 800; margin: 0; 
-    background: linear-gradient(to right, #fff, #94a3b8);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .dash-sub { color: var(--secondary); margin-top: 5px; font-size: 1.1rem; }
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 
+<style>
+  :root {
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #111827;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent: #6366f1;
+    --accent-glow: rgba(99, 102, 241, 0.3);
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --trial: #f97316;
+  }
+
+  * { box-sizing: border-box; }
+
+  /* === BACKGROUND EFFECTS === */
+  .dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative;
+  }
+  
+  .dashboard-container::before {
+    content: '';
+    position: fixed;
+    top: -30%;
+    left: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(88, 101, 242, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    animation: floatSlow 25s ease-in-out infinite;
+  }
+  
+  .dashboard-container::after {
+    content: '';
+    position: fixed;
+    bottom: -20%;
+    right: -10%;
+    width: 700px;
+    height: 700px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    animation: floatSlow 30s ease-in-out infinite reverse;
+  }
+  
+  @keyframes floatSlow {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(30px, -30px) scale(1.05); }
+  }
+
+  /* === HEADER === */
+  .dash-header { 
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 40px;
+    position: relative;
+    z-index: 1;
+    flex-wrap: wrap;
+    gap: 25px;
+  }
+  
+  .dash-title { 
+    font-size: 3.2rem;
+    font-weight: 900;
+    margin: 0;
+    background: linear-gradient(135deg, #fff 0%, #818cf8 50%, #6366f1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -2px;
+    line-height: 1.1;
+  }
+  
+  .dash-sub {
+    color: var(--text-secondary);
+    margin-top: 8px;
+    font-size: 1.05rem;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+  }
+
+  /* === QUICK STATS BAR === */
+  .quick-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .stat-box {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.5) 100%);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .stat-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--stat-gradient);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  
+  .stat-box:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+  
+  .stat-box:hover::before {
+    opacity: 1;
+  }
+  
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: var(--stat-bg);
+    color: var(--stat-color);
+    box-shadow: 0 4px 12px var(--stat-shadow);
+  }
+  
+  .stat-info {
+    flex: 1;
+  }
+  
+  .stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  
+  .stat-value {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+  
+  .stat-guilds { --stat-gradient: linear-gradient(90deg, #6366f1, #8b5cf6); --stat-bg: rgba(99, 102, 241, 0.15); --stat-color: #818cf8; --stat-shadow: rgba(99, 102, 241, 0.3); }
+  .stat-active { --stat-gradient: linear-gradient(90deg, #10b981, #34d399); --stat-bg: rgba(16, 185, 129, 0.15); --stat-color: #34d399; --stat-shadow: rgba(16, 185, 129, 0.3); }
+  .stat-trial { --stat-gradient: linear-gradient(90deg, #f97316, #fb923c); --stat-bg: rgba(249, 115, 22, 0.15); --stat-color: #fb923c; --stat-shadow: rgba(249, 115, 22, 0.3); }
+  .stat-total { --stat-gradient: linear-gradient(90deg, #8b5cf6, #a78bfa); --stat-bg: rgba(139, 92, 246, 0.15); --stat-color: #a78bfa; --stat-shadow: rgba(139, 92, 246, 0.3); }
+
+  /* === SCHEDULER BUTTON === */
   .btn-scheduler-hero {
     background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
-    color: white; border: none; padding: 14px 28px; border-radius: 16px;
-    font-weight: 700; font-size: 1rem; text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
-    box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3); transition: 0.3s;
-    border: 1px solid rgba(255,255,255,0.2);
-  }
-  .btn-scheduler-hero:hover { 
-    transform: translateY(-3px) scale(1.02); 
-    box-shadow: 0 15px 40px rgba(236, 72, 153, 0.5); 
-  }
-
-  .guild-card {
-    background: rgba(30, 41, 59, 0.4);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 24px; margin-bottom: 50px; overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 14px 28px;
+    border-radius: 16px;
+    font-weight: 700;
+    font-size: 1rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
   }
   
-  .guild-header {
-    padding: 25px 30px; 
-    background: rgba(255,255,255,0.03); 
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  .btn-scheduler-hero::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
   }
-  .guild-icon {
-    width: 56px; height: 56px; border-radius: 16px; 
-    background: #333; object-fit: cover;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  
+  .btn-scheduler-hero:hover::before {
+    width: 400px;
+    height: 400px;
   }
-  .guild-info h2 { margin: 0; font-size: 1.3rem; color: white; }
-  .guild-id { font-family: monospace; font-size: 0.85rem; color: var(--secondary); opacity: 0.7; margin-top: 4px;}
+  
+  .btn-scheduler-hero:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 15px 40px rgba(236, 72, 153, 0.5);
+  }
+  
+  .btn-scheduler-hero span {
+    position: relative;
+    z-index: 1;
+  }
 
+  /* === GUILD CARDS === */
+  .guild-card {
+    background: rgba(17, 24, 39, 0.4);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    margin-bottom: 40px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1;
+  }
+  
+  .guild-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+    transition: 0.5s;
+  }
+  
+  .guild-card:hover::before {
+    left: 100%;
+  }
+  
+  .guild-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  }
+
+  /* === GUILD HEADER === */
+  .guild-header {
+    padding: 28px 32px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .guild-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    object-fit: cover;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s;
+  }
+  
+  .guild-icon:hover {
+    transform: scale(1.05) rotate(-3deg);
+  }
+  
+  .guild-info {
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .guild-info h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -0.5px;
+  }
+  
+  .guild-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* === PLATFORM BADGE === */
+  .platform-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .platform-discord {
+    background: rgba(88, 101, 242, 0.15);
+    color: #5865F2;
+    border: 1px solid rgba(88, 101, 242, 0.3);
+  }
+  
+  .platform-twitch {
+    background: rgba(145, 70, 255, 0.15);
+    color: #9146FF;
+    border: 1px solid rgba(145, 70, 255, 0.3);
+  }
+
+  /* === BOTS GRID === */
   .bots-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 20px; padding: 30px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 32px;
   }
 
+  /* === BOT ITEM === */
   .bot-item {
-    background: rgba(0,0,0,0.2); 
-    border: 1px solid rgba(255,255,255,0.05); 
-    border-radius: 18px; padding: 20px;
-    display: flex; flex-direction: column; gap: 15px;
-    transition: 0.3s;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
   }
-  .bot-item:hover { background: rgba(255,255,255,0.05); transform: translateY(-5px); }
-
-  .bot-head { display: flex; align-items: center; gap: 15px; }
-  .bot-img { width: 48px; height: 48px; border-radius: 12px; background: #222; object-fit: cover; }
   
-  .status-badge {
-    font-size: 0.7rem; font-weight: 800; padding: 4px 10px; border-radius: 20px; 
-    text-transform: uppercase; display: inline-block; margin-top: 4px;
-    letter-spacing: 0.5px;
+  .bot-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--bot-gradient);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s;
   }
-  .st-active { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
-  .st-trial { 
-    background: rgba(249, 115, 22, 0.15); color: #fb923c; 
-    border: 1px solid rgba(249, 115, 22, 0.2);
-    display: inline-flex; align-items: center; gap: 5px;
+  
+  .bot-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.15);
   }
-  .st-inactive { background: rgba(255,255,255,0.05); color: #94a3b8; }
+  
+  .bot-item:hover::before {
+    transform: scaleX(1);
+  }
+  
+  .bot-item.active-bot { --bot-gradient: linear-gradient(90deg, #10b981, #34d399); }
+  .bot-item.trial-bot { --bot-gradient: linear-gradient(90deg, #f97316, #fb923c); }
+  .bot-item.inactive-bot { --bot-gradient: linear-gradient(90deg, #64748b, #94a3b8); }
 
-  .bot-actions { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+  /* === BOT HEAD === */
+  .bot-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .bot-img {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    object-fit: cover;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s;
+  }
+  
+  .bot-img:hover {
+    transform: scale(1.1);
+  }
+  
+  .bot-name {
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+  }
+
+  /* === STATUS BADGES === */
+  .status-badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 5px 12px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.5px;
+    margin-top: 6px;
+    border: 1px solid;
+    transition: all 0.3s;
+  }
+  
+  .status-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  
+  .status-badge:hover {
+    transform: scale(1.05);
+  }
+  
+  .st-active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+  
+  .st-trial {
+    background: rgba(249, 115, 22, 0.15);
+    color: #fb923c;
+    border-color: rgba(249, 115, 22, 0.3);
+  }
+  
+  .st-inactive {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.2);
+  }
+  
+  .st-trial .trial-countdown {
+    font-weight: 900;
+    margin-left: 2px;
+  }
+
+  /* === TRIAL INFO === */
+  .trial-info-box {
+    background: rgba(249, 115, 22, 0.1);
+    border: 1px solid rgba(249, 115, 22, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: #fb923c;
+    margin-top: -6px;
+  }
+  
+  .trial-info-box i {
+    font-size: 1.2rem;
+  }
+
+  /* === ACTION BUTTONS === */
+  .bot-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+  }
   
   .action-btn {
-    width: 100%; padding: 10px; border-radius: 10px; font-size: 0.85rem; font-weight: 700; 
-    display: flex; align-items: center; justify-content: center; text-decoration: none; transition: 0.2s;
-    cursor: pointer; border: none;
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: none;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .action-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.5s, height 0.5s;
+  }
+  
+  .action-btn:hover::before {
+    width: 300px;
+    height: 300px;
+  }
+  
+  .action-btn span {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .btn-subscribe {
+    background: linear-gradient(135deg, #5865F2 0%, #4752c4 100%);
+    color: white;
+    box-shadow: 0 6px 20px rgba(88, 101, 242, 0.3);
+  }
+  
+  .btn-subscribe:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(88, 101, 242, 0.5);
+  }
+  
+  .btn-inv {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+  }
+  
+  .btn-inv:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+  }
+  
+  .btn-manage {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    color: #c4b5fd;
+  }
+  
+  .btn-manage:hover {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(168, 85, 247, 0.3) 100%);
+    border-color: rgba(139, 92, 246, 0.5);
+    transform: translateY(-2px);
+  }
+  
+  .btn-trial {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3);
+  }
+  
+  .btn-trial:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(249, 115, 22, 0.5);
   }
 
-  .btn-subscribe { 
-    background: #5865F2; color: white; 
-    box-shadow: 0 4px 15px rgba(88, 101, 242, 0.25);
+  /* === EMPTY STATE === */
+  .empty-state {
+    text-align: center;
+    padding: 100px 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    position: relative;
+    z-index: 1;
   }
-  .btn-subscribe:hover { background: #4752c4; box-shadow: 0 6px 20px rgba(88, 101, 242, 0.4); }
-
-  /* FIX: Bouton Inviter toujours visible et distinct */
-  .btn-inv { 
-    background: rgba(255,255,255,0.1); 
-    border: 1px solid rgba(255,255,255,0.2); 
-    color: #fff; 
+  
+  .empty-icon {
+    font-size: 5rem;
+    margin-bottom: 24px;
+    opacity: 0.3;
+    animation: floatGentle 3s ease-in-out infinite;
   }
-  .btn-inv:hover { 
-    background: rgba(255,255,255,0.2); 
-    border-color: #fff; 
+  
+  @keyframes floatGentle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  .empty-state h3 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+  }
+  
+  .empty-state p {
+    color: var(--text-secondary);
+    margin-bottom: 30px;
+    max-width: 450px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
   }
 
-  .btn-manage { background: rgba(255,255,255,0.1); color: #fff; }
-  .btn-manage:hover { background: rgba(255,255,255,0.2); }
+  /* === DISCORD LINK === */
+  .btn-discord-link {
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
 
-  .btn-trial { background: #f97316; color: #fff; }
-  .btn-trial:hover { background: #ea580c; }
-
+  /* === RESPONSIVE === */
+  @media(max-width: 900px) {
+    .dash-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    
+    .btn-scheduler-hero {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .quick-stats {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .bots-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
   @media(max-width: 600px) {
-    .dash-header { flex-direction: column; align-items: flex-start; gap: 20px; }
-    .btn-scheduler-hero { width: 100%; justify-content: center; }
-    .bots-grid { grid-template-columns: 1fr; }
+    .dash-title {
+      font-size: 2.2rem;
+    }
+    
+    .quick-stats {
+      grid-template-columns: 1fr;
+    }
+    
+    .guild-header {
+      padding: 20px;
+    }
+    
+    .bots-grid {
+      padding: 20px;
+    }
   }
 </style>
 
-<div class="dash-header">
-  <div>
-    <h1 class="dash-title">Tableau de bord</h1>
-    <p class="dash-sub">Gérez vos serveurs et vos abonnements.</p>
+<div class="dashboard-container">
+
+  <!-- HEADER -->
+  <div class="dash-header">
+    <div>
+      <h1 class="dash-title">Tableau de bord</h1>
+      <p class="dash-sub">Gérez vos serveurs et vos abonnements en un clin d'œil</p>
+    </div>
+    <a href="{{ url_for('scheduler_list') }}" class="btn-scheduler-hero">
+      <span><i class="ph ph-calendar-dots"></i> Planifier des tâches</span>
+    </a>
   </div>
-  <a href="{{ url_for('scheduler_list') }}" class="btn-scheduler-hero">
-    <span></span> Planifier des tâches
-  </a>
-</div>
 
-{% if not guilds %}
-  <div style="text-align:center; padding:80px 20px; background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.1); border-radius:24px;">
-    <div style="font-size:4rem; margin-bottom:20px; opacity:0.8;">🕵️‍♂️</div>
-    <h3 style="font-size:1.5rem; margin-bottom:10px;">Aucun serveur détecté</h3>
-    <p style="color:var(--secondary); margin-bottom:30px; max-width:400px; margin-left:auto; margin-right:auto;">
-      Assure-toi d'être administrateur sur tes serveurs Discord pour qu'ils apparaissent ici.
-    </p>
-    <a href="{{ url_for('guilds_sync') }}" class="action-btn btn-subscribe" style="width:auto; display:inline-flex; padding:12px 30px;">Synchroniser mes serveurs</a>
-  </div>
-{% endif %}
-
-{% for g in guilds %}
-  {% set icon_hash = (guild_icons or {}).get(g.discord_id) %}
-  {% set icon_url = "https://cdn.discordapp.com/icons/" ~ g.discord_id ~ "/" ~ icon_hash ~ ".png?size=128" if icon_hash else None %}
-
-  <div class="guild-card">
-    <div class="guild-header">
-      {% if icon_url %} <img src="{{ icon_url }}" class="guild-icon">
-      {% else %} <div class="guild-icon" style="display:grid; place-items:center; color:#fff; font-weight:bold; font-size:1.2rem;">{{ g.name[:2] }}</div>
-      {% endif %}
-      <div class="guild-info">
-        <h2>{{ g.name }}</h2>
-        <div class="guild-id">ID: {{ g.discord_id }}</div>
+  <!-- QUICK STATS -->
+  {% if guilds %}
+  <div class="quick-stats">
+    <div class="stat-box stat-guilds">
+      <div class="stat-icon">
+        <i class="ph ph-buildings"></i>
       </div>
-      <div style="margin-left:auto;">
-        <a href="https://discord.com/channels/{{ g.discord_id }}" target="_blank" class="action-btn btn-inv" style="padding:8px 16px; font-size:0.8rem; width:auto;">Ouvrir Discord ↗</a>
+      <div class="stat-info">
+        <div class="stat-label">Serveurs</div>
+        <div class="stat-value">{{ guilds|length }}</div>
       </div>
     </div>
+    
+    <div class="stat-box stat-active">
+      <div class="stat-icon">
+        <i class="ph ph-check-circle"></i>
+      </div>
+      <div class="stat-info">
+        <div class="stat-label">Actifs</div>
+        <div class="stat-value">
+          {% set active_count = namespace(value=0) %}
+          {% for g in guilds %}
+            {% for bot in bots %}
+              {% set sub = (submap.get(bot.key) or {}).get(g.discord_id) %}
+              {% if sub and sub.status in ('active', 'lifetime') %}
+                {% set active_count.value = active_count.value + 1 %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {{ active_count.value }}
+        </div>
+      </div>
+    </div>
+    
+    <div class="stat-box stat-trial">
+      <div class="stat-icon">
+        <i class="ph ph-clock"></i>
+      </div>
+      <div class="stat-info">
+        <div class="stat-label">Essais</div>
+        <div class="stat-value">
+          {% set trial_count = namespace(value=0) %}
+          {% for g in guilds %}
+            {% for bot in bots %}
+              {% set sub = (submap.get(bot.key) or {}).get(g.discord_id) %}
+              {% if sub and sub.status == 'trial' and sub.trial_until and sub.trial_until > now_utc %}
+                {% set trial_count.value = trial_count.value + 1 %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {{ trial_count.value }}
+        </div>
+      </div>
+    </div>
+    
+    <div class="stat-box stat-total">
+      <div class="stat-icon">
+        <i class="ph ph-robot"></i>
+      </div>
+      <div class="stat-info">
+        <div class="stat-label">Bots</div>
+        <div class="stat-value">{{ bots|length }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
-    <div class="bots-grid">
-      {% for bot in bots %}
-        {% set sub = (submap.get(bot.key) or {}).get(g.discord_id) %}
-        {% set is_active = sub and sub.status in ('active', 'lifetime') %}
-        {% set is_trial = sub and sub.status == 'trial' and sub.trial_until and sub.trial_until > now_utc %}
-        {% set avatar = (bot_avatars or {}).get(bot.key) %}
+  <!-- EMPTY STATE -->
+  {% if not guilds %}
+  <div class="empty-state">
+    <div class="empty-icon">🕵️‍♂️</div>
+    <h3>Aucun serveur détecté</h3>
+    <p>
+      Assure-toi d'être administrateur sur tes serveurs Discord pour qu'ils apparaissent ici.
+      Synchronise tes serveurs pour commencer !
+    </p>
+    <a href="{{ url_for('guilds_sync') }}" class="action-btn btn-subscribe" style="width:auto; display:inline-flex; padding:14px 32px;">
+      <span><i class="ph ph-arrows-clockwise"></i> Synchroniser mes serveurs</span>
+    </a>
+  </div>
+  {% endif %}
 
-        <div class="bot-item">
-          <div class="bot-head">
-            {% if avatar %} <img src="{{ avatar }}" class="bot-img">
-            {% else %} <div class="bot-img" style="display:grid; place-items:center;">?</div>
+  <!-- GUILDS -->
+  {% for g in guilds %}
+    {# CORRECTION : Gérer Twitch vs Discord pour l'icône #}
+    {% if g.platform == 'twitch' %}
+      {# Pour Twitch : utiliser directement icon_url de la DB #}
+      {% set icon_url = g.icon_url %}
+    {% else %}
+      {# Pour Discord : construire l'URL depuis guild_icons #}
+      {% set icon_hash = (guild_icons or {}).get(g.discord_id) %}
+      {% set icon_url = "https://cdn.discordapp.com/icons/" ~ g.discord_id ~ "/" ~ icon_hash ~ ".png?size=128" if icon_hash else None %}
+    {% endif %}
+
+    <div class="guild-card">
+      <div class="guild-header">
+        {% if icon_url %}
+          <img src="{{ icon_url }}" class="guild-icon" alt="{{ g.name }}">
+        {% else %}
+          <div class="guild-icon" style="display:grid; place-items:center; color:#fff; font-weight:900; font-size:1.5rem;">
+            {{ g.name[:2]|upper }}
+          </div>
+        {% endif %}
+        
+        <div class="guild-info">
+          <h2>{{ g.name }}</h2>
+          <div class="guild-id">
+            {% if g.platform == 'twitch' %}
+              <i class="ph ph-twitch-logo"></i>
+              <span class="platform-badge platform-twitch">
+                <i class="ph ph-twitch-logo"></i> Twitch
+              </span>
+            {% else %}
+              <i class="ph ph-hash"></i>
             {% endif %}
-            <div>
-              <div style="font-weight:bold; font-size:1.05rem;">{{ bot.name }}</div>
-              
-              {% if is_active %}
-                <span class="status-badge st-active">Actif</span>
-              {% elif is_trial %}
-                <span class="status-badge st-trial">
-                  Essai
-                  {% if sub.trial_remaining_info %}
-                    &bull; {{ sub.trial_remaining_info }}
-                  {% endif %}
-                </span>
+            {{ g.discord_id }}
+          </div>
+        </div>
+        
+        <div style="margin-left:auto;">
+          {% if g.platform == 'twitch' %}
+            <a href="https://twitch.tv/{{ g.name }}" target="_blank" class="action-btn btn-discord-link btn-inv">
+              <i class="ph ph-twitch-logo"></i>
+              <span>Ouvrir Twitch</span>
+            </a>
+          {% else %}
+            <a href="https://discord.com/channels/{{ g.discord_id }}" target="_blank" class="action-btn btn-discord-link btn-inv">
+              <i class="ph ph-arrow-square-out"></i>
+              <span>Ouvrir Discord</span>
+            </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="bots-grid">
+        {% for bot in bots %}
+          {% set sub = (submap.get(bot.key) or {}).get(g.discord_id) %}
+          {% set is_active = sub and sub.status in ('active', 'lifetime') %}
+          {% set is_trial = sub and sub.status == 'trial' and sub.trial_until and sub.trial_until > now_utc %}
+          {% set avatar = (bot_avatars or {}).get(bot.key) %}
+
+          <div class="bot-item {% if is_active %}active-bot{% elif is_trial %}trial-bot{% else %}inactive-bot{% endif %}">
+            <div class="bot-head">
+              {% if avatar %}
+                <img src="{{ avatar }}" class="bot-img" alt="{{ bot.name }}">
               {% else %}
-                <span class="status-badge st-inactive">Inactif</span>
+                <div class="bot-img" style="display:grid; place-items:center; color:#fff; font-weight:900; font-size:1.2rem;">
+                  {{ bot.name[:1] }}
+                </div>
+              {% endif %}
+              
+              <div style="flex:1;">
+                <div class="bot-name">{{ bot.name }}</div>
+                
+                {% if is_active %}
+                  <span class="status-badge st-active">Actif</span>
+                {% elif is_trial %}
+                  <span class="status-badge st-trial">
+                    Essai
+                    {% if sub.trial_remaining_info %}
+                      <span class="trial-countdown">{{ sub.trial_remaining_info }}</span>
+                    {% endif %}
+                  </span>
+                {% else %}
+                  <span class="status-badge st-inactive">Inactif</span>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if is_trial and sub.trial_remaining_info %}
+            <div class="trial-info-box">
+              <i class="ph ph-clock-countdown"></i>
+              <div>
+                <strong>Essai en cours</strong> • Se termine {{ sub.trial_remaining_info }}
+              </div>
+            </div>
+            {% endif %}
+
+            <div class="bot-actions">
+              {# CORRECTION : Ne pas afficher "Inviter" pour Twitch #}
+              {% if g.platform != 'twitch' %}
+                <a href="{{ url_for('invite', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" class="action-btn btn-inv">
+                  <span><i class="ph ph-plus-circle"></i> Inviter sur le serveur</span>
+                </a>
+              {% endif %}
+
+              {% if is_active %}
+                <form method="post" action="{{ url_for('billing_portal', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
+                  <button class="action-btn btn-manage">
+                    <span><i class="ph ph-gear"></i> Gérer l'abonnement</span>
+                  </button>
+                </form>
+              {% elif is_trial %}
+                <form method="post" action="{{ url_for('subscribe', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
+                  <button class="action-btn btn-subscribe">
+                    <span><i class="ph ph-crown"></i> S'abonner (VIP)</span>
+                  </button>
+                </form>
+              {% else %}
+                {% if not has_any_active and not trial_ever and not active_lock %}
+                  <form method="post" action="{{ url_for('trial_start', guild_id=g.discord_id, bot_key=bot.key) }}" style="width:100%">
+                    <button class="action-btn btn-trial">
+                      <span><i class="ph ph-gift"></i> Activer l'Essai Gratuit</span>
+                    </button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{{ url_for('subscribe', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
+                    <button class="action-btn btn-subscribe">
+                      <span><i class="ph ph-rocket-launch"></i> S'abonner</span>
+                    </button>
+                  </form>
+                {% endif %}
               {% endif %}
             </div>
           </div>
-
-          <div class="bot-actions">
-            <a href="{{ url_for('invite', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" class="action-btn btn-inv">
-               <i class="ph ph-plus" style="margin-right:8px;"></i> Inviter sur le serveur
-            </a>
-
-            {% if is_active %}
-              <form method="post" action="{{ url_for('billing_portal', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
-                <button class="action-btn btn-manage">Gérer l'abonnement</button>
-              </form>
-            {% elif is_trial %}
-              <form method="post" action="{{ url_for('subscribe', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
-                <button class="action-btn btn-subscribe">S'abonner (VIP)</button>
-              </form>
-            {% else %}
-              {% if not has_any_active and not trial_ever and not active_lock %}
-                <form method="post" action="{{ url_for('trial_start', guild_id=g.discord_id, bot_key=bot.key) }}" style="width:100%">
-                  <button class="action-btn btn-trial">Activer l'Essai Gratuit</button>
-                </form>
-              {% else %}
-                <form method="post" action="{{ url_for('subscribe', guild_id=g.discord_id, bot_key=bot.key) }}" target="_blank" style="width:100%">
-                  <button class="action-btn btn-subscribe">S'abonner</button>
-                </form>
-              {% endif %}
-            {% endif %}
-          </div>
-        </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
     </div>
-  </div>
-{% endfor %}
+  {% endfor %}
+
+</div>
+
+<script>
+// Toast de bienvenue
+{% if guilds %}
+setTimeout(() => {
+  Toastify({
+    text: "✨ Tableau de bord chargé avec succès",
+    duration: 2000,
+    style: {
+      background: "linear-gradient(135deg, #6366f1, #8b5cf6)"
+    }
+  }).showToast();
+}, 500);
+{% endif %}
+
+// Animation au scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.style.opacity = '1';
+      entry.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.guild-card, .bot-item').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(20px)';
+  el.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+  observer.observe(el);
+});
+
+console.log('✨ Dashboard 4U BOT chargé !');
+</script>
 
 {% endblock %}
