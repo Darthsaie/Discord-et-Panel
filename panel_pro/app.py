@@ -161,6 +161,14 @@ PERM_ADMIN = 0x00000008
 PERM_MANAGE_GUILD = 0x00000020
 ADMIN_DISCORD_IDS = [s.strip() for s in os.getenv("ADMIN_DISCORD_IDS", "").split(",") if s.strip()]
 
+# Configuration Twitch OAuth
+TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID", "")
+TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET", "")
+TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI", f"{BASE_URL.rstrip('/')}/oauth/twitch/callback")
+TWITCH_OAUTH_SCOPE = "user:read:email user:read:follows"
+TWITCH_API_BASE = "https://id.twitch.tv/oauth2"
+TWITCH_HELIX_API = "https://api.twitch.tv/helix"
+
 
 def make_app():
     app = Flask(__name__)
@@ -246,8 +254,16 @@ def make_app():
             "response_type": "code",
             "scope": DISCORD_OAUTH_SCOPE,
         }
-        q = "&".join(f"{k}={requests.utils.quote(v)}" for k, v in params.items())
-        return f"{DISCORD_API_BASE}/oauth2/authorize?{q}"
+        return f"https://discord.com/api/oauth2/authorize?{requests.compat.urlencode(params)}"
+
+    def twitch_oauth_authorize_url():
+        params = {
+            "client_id": TWITCH_CLIENT_ID,
+            "redirect_uri": TWITCH_REDIRECT_URI,
+            "response_type": "code",
+            "scope": TWITCH_OAUTH_SCOPE,
+        }
+        return f"https://id.twitch.tv/oauth2/authorize?{requests.compat.urlencode(params)}"
 
     def has_admin_perms(perms_value, is_owner) -> bool:
         try:
@@ -400,7 +416,25 @@ def make_app():
                 db.commit()
                 bots = db.scalars(select(BotType)).all()
 
-            guilds = db.scalars(select(Guild).where(Guild.discord_id.in_(ids))).all() if ids else []
+            # Récupérer les guilds Discord ET Twitch
+            guilds = []
+            if ids:
+                # Guilds Discord
+                discord_guilds = db.scalars(select(Guild).where(Guild.discord_id.in_(ids))).all()
+                guilds.extend(discord_guilds)
+            
+            # Ajouter les guilds Twitch si connecté via Twitch
+            if session.get("twitch_oauth"):
+                twitch_guilds = db.scalars(select(Guild).where(Guild.platform == "twitch")).all()
+                guilds.extend(twitch_guilds)
+            
+            # Filtrer uniquement DeadPool pour Twitch si connecté via Twitch
+            if session.get("twitch_oauth"):
+                deadpool_bot = next((b for b in bots if b.key == "deadpool"), None)
+                if deadpool_bot:
+                    # Garder seulement les bots DeadPool pour les guilds Twitch
+                    bots = [deadpool_bot]
+            
             subs = db.scalars(select(Subscription)).all()
 
             submap: dict[str, dict[str, Subscription]] = {}
@@ -897,6 +931,11 @@ def make_app():
     @app.get("/login")
     def login_discord():
         url = oauth_authorize_url()
+        return render_template("auth_bouncer.html", auth_url=url)
+
+    @app.get("/login/twitch")
+    def login_twitch():
+        url = twitch_oauth_authorize_url()
         return render_template("auth_bouncer.html", auth_url=url)
 
     @app.get("/oauth/callback")
