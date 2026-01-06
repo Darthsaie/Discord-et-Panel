@@ -235,7 +235,6 @@ def make_app():
         @wraps(view)
         def wrapper(*args, **kwargs):
             if not session.get("user"):
-                # Rediriger vers la bonne page de login selon la plateforme
                 if session.get("twitch_oauth"):
                     return redirect(url_for("login_twitch"))
                 else:
@@ -244,27 +243,20 @@ def make_app():
             u = session.get("user") or {}
             uid = str(u.get("id") or "")
             
-            # Si pas d'admin Discord configuré, autoriser tout utilisateur connecté
             if not ADMIN_DISCORD_IDS:
                 if uid:
                     return view(*args, **kwargs)
-                # Rediriger vers la bonne page de login
                 if session.get("twitch_oauth"):
                     return redirect(url_for("login_twitch"))
                 else:
                     return redirect(url_for("login_discord"))
             
-            # Vérifier admin Discord
             if uid in ADMIN_DISCORD_IDS:
                 return view(*args, **kwargs)
             
-            # Vérifier admin Twitch (même logique pour les admins Twitch)
             if u.get("platform") == "twitch" and uid:
-                # Pour l'instant, autoriser les utilisateurs Twitch connectés
-                # Plus tard, vous pouvez configurer ADMIN_TWITCH_IDS
                 return view(*args, **kwargs)
             
-            # Rediriger vers la bonne page de login
             if session.get("twitch_oauth"):
                 return redirect(url_for("login_twitch"))
             else:
@@ -440,24 +432,18 @@ def make_app():
                 db.commit()
                 bots = db.scalars(select(BotType)).all()
 
-            # Récupérer les guilds Discord ET Twitch
             guilds = []
             if ids:
-                # Guilds Discord
                 discord_guilds = db.scalars(select(Guild).where(Guild.discord_id.in_(ids))).all()
                 guilds.extend(discord_guilds)
             
-            # Ajouter les guilds Twitch si connecté via Twitch
             if session.get("twitch_oauth"):
-                # Récupérer uniquement la chaîne Twitch de l'utilisateur connecté
                 user_id = session.get("user", {}).get("id")
                 if user_id:
-                    # Chercher la chaîne Twitch qui correspond à l'ID utilisateur
                     user_twitch_guild = db.scalar(select(Guild).where(Guild.discord_id == user_id, Guild.platform == "twitch"))
                     if user_twitch_guild:
                         guilds.append(user_twitch_guild)
             
-            # Filtrer uniquement DeadPool pour Twitch si connecté via Twitch
             if session.get("twitch_oauth"):
                 deadpool_bot = next((b for b in bots if b.key == "deadpool"), None)
                 if deadpool_bot:
@@ -506,23 +492,18 @@ def make_app():
 
     @app.get("/leaderboard")
     def leaderboard():
-        """Page du classement quiz"""
         leaderboard_file = "/app/shared/leaderboard.json"
-        
         scores = []
         try:
             if os.path.exists(leaderboard_file):
                 with open(leaderboard_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    
-                    # Récupérer un token bot pour l'API Discord
                     bot_token = None
                     for token in BOT_TOKENS.values():
                         if token:
                             bot_token = token
                             break
                     
-                    # Format {"discord_id": score}
                     if isinstance(data, dict) and "scores" not in data:
                         for discord_id, score in data.items():
                             user_info = {
@@ -530,8 +511,6 @@ def make_app():
                                 "score": score,
                                 "avatar": None
                             }
-                            
-                            # Essayer de récupérer le profil Discord
                             if bot_token:
                                 try:
                                     r = requests.get(
@@ -546,25 +525,20 @@ def make_app():
                                         if avatar_hash:
                                             user_info["avatar"] = f"https://cdn.discordapp.com/avatars/{discord_id}/{avatar_hash}.png?size=128"
                                         else:
-                                            # Avatar par défaut Discord
                                             discriminator = int(user.get("discriminator", "0"))
-                                            if discriminator == 0:  # Nouveau système Discord
+                                            if discriminator == 0:
                                                 idx = (int(discord_id) >> 22) % 6
                                             else:
                                                 idx = discriminator % 5
                                             user_info["avatar"] = f"https://cdn.discordapp.com/embed/avatars/{idx}.png"
                                 except Exception as e:
                                     print(f"Erreur récupération profil {discord_id}: {e}")
-                            
                             scores.append(user_info)
                     
-                    # Format nouveau {"scores": [...]}
                     elif isinstance(data, dict) and "scores" in data:
                         scores = data.get("scores", [])
                     
-                    # Trier par score décroissant
                     scores = sorted(scores, key=lambda x: x.get("score", 0), reverse=True)[:20]
-                    
         except Exception as e:
             print(f"Erreur lecture leaderboard: {e}")
             import traceback
@@ -927,8 +901,6 @@ def make_app():
 
                     if is_allowed:
                         if getattr(s.guild, "platform", "discord") == "twitch":
-                            # Pour Twitch IRC, on doit renvoyer le login/nom de chaîne.
-                            # Ici, on stocke le login dans Guild.name.
                             ch = (getattr(s.guild, "name", "") or "").strip().lower()
                             if ch:
                                 allowed_twitch.append(ch)
@@ -977,40 +949,34 @@ def make_app():
 
     @app.get("/login")
     def login_discord():
-        # Déconnecter Twitch si connecté
         if session.get("twitch_oauth"):
             session.clear()
         url = oauth_authorize_url()
-        return render_template("auth_bouncer.html", auth_url=url)
+        # On spécifie le service Discord pour que auth_bouncer sache gérer le lien
+        return render_template("auth_bouncer.html", auth_url=url, service="Discord")
 
     @app.get("/login/twitch")
     def login_twitch():
-        # Déconnecter Discord si connecté
         if session.get("oauth"):
             session.clear()
         url = twitch_oauth_authorize_url()
-        return render_template("auth_bouncer.html", auth_url=url)
+        # On spécifie le service Twitch pour éviter le bug discord://
+        return render_template("auth_bouncer.html", auth_url=url, service="Twitch")
 
     @app.get("/oauth/twitch/callback")
     @app.get("/oauth/callback/twitch")
     def twitch_oauth_callback():
         code = request.args.get("code")
-        if not code:
-            return (
-                "<!doctype html><html><head><meta charset='utf-8'><title>Twitch Token</title>"
-                "<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b1220;color:#e5e7eb;padding:24px}"
-                "code{background:#111827;padding:2px 6px;border-radius:6px}a{color:#93c5fd}</style></head><body>"
-                "<h2>Token Twitch (chat)</h2>"
-                "<p>Tu as utilisé le flow <code>response_type=token</code>. Twitch met le token dans l'URL après <code>#</code> (fragment), "
-                "et le serveur ne le reçoit pas.</p>"
-                "<p>Copie <b>access_token</b> directement dans ta barre d'adresse (ça ressemble à : <code>#access_token=XXXX</code>).</p>"
-                "<p>Puis ajoute dans ton <code>.env</code> : <code>TWITCH_OAUTH_TOKEN_DEADPOOL=oauth:XXXX</code></p>"
-                "</body></html>",
-                200,
-                {"Content-Type": "text/html; charset=utf-8"},
-            )
+        error = request.args.get("error")
+        
+        if error:
+            flash(f"Erreur Twitch : {error} - {request.args.get('error_description')}", "error")
+            return redirect(url_for("index"))
 
-        # Échanger le code contre un access token
+        if not code:
+            flash("Code d'autorisation manquant.", "error")
+            return redirect(url_for("index"))
+
         data = {
             "client_id": TWITCH_CLIENT_ID,
             "client_secret": TWITCH_CLIENT_SECRET,
@@ -1019,46 +985,52 @@ def make_app():
             "redirect_uri": TWITCH_REDIRECT_URI,
         }
         
-        response = requests.post(f"{TWITCH_API_BASE}/token", data=data, timeout=15)
-        response.raise_for_status()
-        token_data = response.json()
+        try:
+            response = requests.post(f"{TWITCH_API_BASE}/token", data=data, timeout=15)
+            response.raise_for_status()
+            token_data = response.json()
+        except Exception as e:
+            print(f"ERREUR ECHANGE TOKEN TWITCH: {e}")
+            flash("Échec de la connexion Twitch (Token).", "error")
+            return redirect(url_for("index"))
         
         access_token = token_data["access_token"]
+        refresh_token = token_data.get("refresh_token")
         
-        # Obtenir les informations utilisateur
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Client-Id": TWITCH_CLIENT_ID
         }
         
-        user_response = requests.get(f"{TWITCH_HELIX_API}/users", headers=headers, timeout=15)
-        user_response.raise_for_status()
-        user_data = user_response.json()
+        try:
+            user_response = requests.get(f"{TWITCH_HELIX_API}/users", headers=headers, timeout=15)
+            user_response.raise_for_status()
+            user_data = user_response.json()
+        except Exception as e:
+            flash("Impossible de récupérer le profil Twitch.", "error")
+            return redirect(url_for("index"))
         
         if not user_data.get("data"):
+            flash("Aucune donnée utilisateur trouvée.", "error")
             return redirect(url_for("dashboard"))
             
         user_info = user_data["data"][0]
-        user_id = user_info["id"]
-        login_name = user_info["login"]
-        display_name = user_info["display_name"]
         
-        # Créer la session utilisateur
         session["twitch_oauth"] = {
             "access_token": access_token,
-            "refresh_token": token_data.get("refresh_token"),
-            "expires_at": dt.datetime.utcnow() + dt.timedelta(seconds=token_data.get("expires_in", 3600))
+            "refresh_token": refresh_token,
+            "expires_at": (dt.datetime.utcnow() + dt.timedelta(seconds=token_data.get("expires_in", 3600))).timestamp()
         }
         
         session["user"] = {
-            "id": user_id,
-            "username": login_name,
-            "display_name": display_name,
+            "id": user_info["id"],
+            "username": user_info["login"],
+            "display_name": user_info["display_name"],
             "avatar": user_info.get("profile_image_url"),
             "platform": "twitch"
         }
         
-        flash(f"Connecté avec succès via Twitch !", "ok")
+        flash(f"Connecté avec succès en tant que {user_info['display_name']} !", "ok")
         return redirect(url_for("dashboard"))
 
     @app.get("/oauth/callback")
@@ -1157,8 +1129,18 @@ def make_app():
         channel_id = request.form.get("channel_id")
 
         ids = session.get("admin_guild_ids") or []
-        if guild_discord_id not in ids:
-            flash("Erreur de permission.", "error")
+        user = session.get("user") or {}
+        
+        is_allowed = False
+        
+        # Check permissions Discord OU Twitch
+        if guild_discord_id in ids:
+            is_allowed = True
+        elif user.get('platform') == 'twitch' and str(user.get('id')) == str(guild_discord_id):
+            is_allowed = True
+            
+        if not is_allowed:
+            flash("Erreur de permission (Serveur ou Chaîne inconnue).", "error")
             return redirect(url_for("scheduler_list"))
 
         with Session(app.engine) as db:
@@ -1206,9 +1188,7 @@ def make_app():
     @app.get("/admin/subs-v2")
     @admin_required
     def admin_subs_v2():
-        """Panel admin optimisé pour milliers d'entrées"""
         with Session(app.engine) as db:
-            # Récupérer toutes les subscriptions avec pagination côté serveur
             query = select(Subscription).options(
                 selectinload(Subscription.guild),
                 selectinload(Subscription.bot_type)
@@ -1216,7 +1196,6 @@ def make_app():
 
             all_subs = db.scalars(query).all()
             
-            # Récupérer les guildes Twitch connectées sans subscription
             twitch_guild_ids_with_subs = {s.guild.discord_id for s in all_subs if s.guild.platform == "twitch"}
             all_twitch_guilds = db.scalars(select(Guild).where(Guild.platform == "twitch")).all()
             
@@ -1235,7 +1214,6 @@ def make_app():
                     })()
                     twitch_connected.append(virtual_sub)
             
-            # Statistiques
             discord_subs = [s for s in all_subs if s.guild.platform != "twitch"]
             twitch_subs = [s for s in all_subs if s.guild.platform == "twitch"]
             
@@ -1472,7 +1450,6 @@ def register_admin_routes(app):
     @app.post("/api/admin/subscription")
     def api_create_subscription():
         from flask import session
-        # Vérifier si l'utilisateur est admin
         if session.get("user") != "admin":
             return jsonify({"success": False, "error": "Unauthorized"}), 401
         
@@ -1480,7 +1457,6 @@ def register_admin_routes(app):
         
         try:
             with Session(app.engine) as db:
-                # Créer la guild si elle n'existe pas
                 guild = db.scalar(select(Guild).where(Guild.discord_id == data['guild_id']))
                 if not guild:
                     guild = Guild(
@@ -1489,9 +1465,8 @@ def register_admin_routes(app):
                         platform=data['platform']
                     )
                     db.add(guild)
-                    db.flush()  # Pour obtenir l'ID
+                    db.flush()
                 
-                # Créer la subscription
                 subscription = Subscription(
                     guild_id=guild.id,
                     bot_type_id=data['bot_type_id'],
@@ -1508,7 +1483,6 @@ def register_admin_routes(app):
     @app.get("/api/bot-types")
     def api_get_bot_types():
         from flask import session
-        # Vérifier si l'utilisateur est admin
         if session.get("user") != "admin":
             return jsonify({"error": "Unauthorized"}), 401
         
@@ -1522,6 +1496,40 @@ def register_admin_routes(app):
                 } for bt in bot_types])
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
+    # --- AJOUT POUR CONFIGURATION TWITCH ---
+    CONFIG_FILE = os.path.join(os.path.dirname(__file__), "bot_config.json")
+
+    def load_bot_config():
+        if not os.path.exists(CONFIG_FILE): return {}
+        try:
+            with open(CONFIG_FILE, 'r') as f: return json.load(f)
+        except: return {}
+
+    def save_bot_config(data):
+        with open(CONFIG_FILE, 'w') as f: json.dump(data, f, indent=4)
+
+    @app.route('/api/bot/auto-messages/<bot_key>', methods=['GET', 'POST'])
+    def api_auto_messages_config(bot_key):
+        if request.args.get("token") != PANEL_API_TOKEN and request.method == 'GET':
+             pass 
+        
+        config = load_bot_config()
+        bot_config = config.get(bot_key, {"enabled": False, "interval": 30})
+
+        if request.method == 'POST':
+            if not session.get('user'): return jsonify({"error": "Unauthorized"}), 401
+            data = request.json
+            bot_config.update({
+                "enabled": bool(data.get("enabled")),
+                "interval": int(data.get("interval", 30))
+            })
+            config[bot_key] = bot_config
+            save_bot_config(config)
+            return jsonify({"success": True, "config": bot_config})
+
+        return jsonify(bot_config)
+    # ---------------------------------------
 
 
 if __name__ == "__main__":

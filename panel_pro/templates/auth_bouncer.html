@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion Discord</title>
+    <title>Connexion {{ service }}</title>
     <style>
         body { background-color: #2f3136; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
         .loader { border: 4px solid #202225; border-top: 4px solid #5865F2; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
@@ -14,19 +14,21 @@
 </head>
 <body>
     <div class="loader"></div>
-    <h3>Ouverture de Discord...</h3>
+    <h3>Connexion à {{ service }}...</h3>
     
     <a href="{{ auth_url }}" class="btn">Continuer via le Navigateur</a>
-    <p class="sub-text">Si l'application ne s'ouvre pas automatiquement.</p>
+    <p class="sub-text">Redirection automatique...</p>
 
     <script>
         var webUrl = "{{ auth_url | safe }}";
-        var appUrl = webUrl.replace("https://", "discord://");
+        var service = "{{ service }}";
         var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        if (isMobile) {
-            // Astuce : iframe cachée pour éviter l'erreur ERR_UNKNOWN_URL_SCHEME sur Android
-            // Si ça échoue, ça ne change pas la page actuelle, donc pas d'erreur visible
+        if (isMobile && service === 'Discord') {
+            // Logique spécifique pour l'app Discord
+            var appUrl = webUrl.replace("https://", "discord://");
+            
+            // Astuce iframe pour éviter l'erreur si l'app n'est pas installée
             var iframe = document.createElement("iframe");
             iframe.style.border = "none";
             iframe.style.width = "1px";
@@ -34,14 +36,14 @@
             iframe.src = appUrl;
             document.body.appendChild(iframe);
             
-            // Fallback : si on est toujours là après 2.5 secondes, on redirige vers le Web
+            // Fallback vers le web après 2.5 secondes
             setTimeout(function() {
-                // On vérifie si l'utilisateur est toujours actif sur la page
                 if (!document.hidden) {
                     window.location.href = webUrl;
                 }
             }, 2500);
         } else {
+            // Pour Twitch ou sur PC, redirection directe
             window.location.href = webUrl;
         }
     </script>
