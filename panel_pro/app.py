@@ -901,10 +901,18 @@ def make_app():
             return jsonify({"error": "unauthorized"}), 401
 
         now = dt.datetime.utcnow()
-        allowed = []
+        allowed_discord = []
+        allowed_twitch = []
 
         with Session(app.engine) as db:
-            for s in db.scalars(select(Subscription)).all():
+            subs = db.scalars(
+                select(Subscription).options(
+                    selectinload(Subscription.guild),
+                    selectinload(Subscription.bot_type),
+                )
+            ).all()
+
+            for s in subs:
                 if s.bot_type.key == bot_key:
                     is_allowed = False
 
@@ -918,12 +926,19 @@ def make_app():
                         is_allowed = True
 
                     if is_allowed:
-                        allowed.append(int(s.guild.discord_id))
+                        if getattr(s.guild, "platform", "discord") == "twitch":
+                            # Pour Twitch IRC, on doit renvoyer le login/nom de chaîne.
+                            # Ici, on stocke le login dans Guild.name.
+                            ch = (getattr(s.guild, "name", "") or "").strip().lower()
+                            if ch:
+                                allowed_twitch.append(ch)
+                        else:
+                            allowed_discord.append(int(s.guild.discord_id))
 
         return jsonify({
             "bot_key": bot_key, 
-            "allowed_guild_ids": allowed,
-            "allowed_twitch_channels": allowed  # Ajout pour compatibilité Twitch
+            "allowed_guild_ids": sorted(list(set(allowed_discord))),
+            "allowed_twitch_channels": sorted(list(set(allowed_twitch)))
         })
 
     @app.get("/api/bot/tasks/<bot_key>")
@@ -976,11 +991,24 @@ def make_app():
         url = twitch_oauth_authorize_url()
         return render_template("auth_bouncer.html", auth_url=url)
 
+    @app.get("/oauth/twitch/callback")
     @app.get("/oauth/callback/twitch")
     def twitch_oauth_callback():
         code = request.args.get("code")
         if not code:
-            return redirect(url_for("dashboard"))
+            return (
+                "<!doctype html><html><head><meta charset='utf-8'><title>Twitch Token</title>"
+                "<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b1220;color:#e5e7eb;padding:24px}"
+                "code{background:#111827;padding:2px 6px;border-radius:6px}a{color:#93c5fd}</style></head><body>"
+                "<h2>Token Twitch (chat)</h2>"
+                "<p>Tu as utilisé le flow <code>response_type=token</code>. Twitch met le token dans l'URL après <code>#</code> (fragment), "
+                "et le serveur ne le reçoit pas.</p>"
+                "<p>Copie <b>access_token</b> directement dans ta barre d'adresse (ça ressemble à : <code>#access_token=XXXX</code>).</p>"
+                "<p>Puis ajoute dans ton <code>.env</code> : <code>TWITCH_OAUTH_TOKEN_DEADPOOL=oauth:XXXX</code></p>"
+                "</body></html>",
+                200,
+                {"Content-Type": "text/html; charset=utf-8"},
+            )
 
         # Échanger le code contre un access token
         data = {

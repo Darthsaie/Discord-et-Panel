@@ -1,6 +1,7 @@
 import os
 import aiohttp
 import asyncio
+import logging
 from twitchio.ext import commands
 from openai import OpenAI
 from .twitch_auto_messages import TwitchAutoMessages
@@ -24,26 +25,29 @@ class TwitchBot(commands.Bot):
         # Liste des chaînes rejointes
         self.joined_channels = set()
 
+        logging.basicConfig(level=logging.INFO)
+        logging.getLogger("twitchio").setLevel(logging.INFO)
+
+        print(f"🚀 [{self.bot_key.upper()}] Démarrage bot Twitch (IRC)", flush=True)
+
         # Obtenir ou utiliser le token OAuth
-        token = os.getenv("TWITCH_OAUTH_TOKEN")
+        token = os.getenv(f"TWITCH_OAUTH_TOKEN_{self.bot_key.upper()}") or os.getenv("TWITCH_OAUTH_TOKEN")
         if not token:
-            print("⚠️ TWITCH_OAUTH_TOKEN non défini, utilisation de l'authentification automatique...")
-            # TwitchIO peut gérer l'auth avec client_id/secret
-            token = None
+            raise ValueError(
+                "TWITCH_OAUTH_TOKEN manquant (.env). Requis pour Twitch IRC (TwitchIO 2.x). "
+                "Ajoute TWITCH_OAUTH_TOKEN ou TWITCH_OAUTH_TOKEN_<BOTKEY> (ex: TWITCH_OAUTH_TOKEN_DEADPOOL) au format oauth:xxxx."
+            )
 
         # Initialisation Twitch
         super().__init__(
-            token=token,  # Token OAuth ou None pour auth auto
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            bot_id=os.getenv("TWITCH_BOT_ID"),  # Ajout du bot_id requis
+            token=token,  # Token OAuth (IRC) attendu sous forme oauth:...
             prefix='!',
             initial_channels=[]
         )
 
     async def event_ready(self):
-        bot_name = getattr(self.user, 'name', 'Unknown') if self.user else 'Unknown'
-        print(f"🟣 [{self.bot_key.upper()}] Connecté à Twitch en tant que {bot_name}")
+        bot_name = getattr(self, "nick", None) or "Unknown"
+        print(f"🟣 [{self.bot_key.upper()}] Connecté à Twitch en tant que {bot_name}", flush=True)
         
         # Charger la configuration des messages automatiques
         await self.auto_messages.load_config_from_panel()
@@ -66,7 +70,9 @@ class TwitchBot(commands.Bot):
                     async with session.get(url, params={"token": self.panel_token}) as resp:
                         if resp.status == 200:
                             data = await resp.json()
-                            allowed = set(data.get("allowed_twitch_channels", []))
+                            allowed = {str(x).strip().lower() for x in data.get("allowed_twitch_channels", []) if str(x).strip()}
+
+                            print(f"🔁 [{self.bot_key}] Sync channels: {sorted(list(allowed))}", flush=True)
                             
                             # Celles qu'on doit rejoindre
                             to_join = list(allowed - self.joined_channels)
@@ -74,38 +80,25 @@ class TwitchBot(commands.Bot):
                             to_part = list(self.joined_channels - allowed)
                             
                             if to_join:
-                                print(f"➕ [{self.bot_key}] Rejoint : {to_join}")
-                                try:
-                                    await self.join_channels(to_join)
-                                    self.joined_channels.update(to_join)
-                                except AttributeError:
-                                    # Si join_channels n'existe pas, essayer une autre méthode
-                                    print(f"⚠️ join_channels non disponible, tentative alternative...")
-                                    for channel_id in to_join:
-                                        try:
-                                            # Essayer de rejoindre avec le nom de chaîne
-                                            channel = self.get_channel(channel_id)
-                                            if channel:
-                                                print(f"✅ Canal {channel_id} trouvé et rejoint")
-                                                self.joined_channels.add(channel_id)
-                                            else:
-                                                print(f"⚠️ Canal {channel_id} non trouvé")
-                                        except Exception as e:
-                                            print(f"⚠️ Erreur canal {channel_id}: {e}")
+                                print(f"➕ [{self.bot_key}] Rejoint : {to_join}", flush=True)
+                                await self.join_channels(to_join)
+                                self.joined_channels.update(to_join)
                                 
                             if to_part:
-                                print(f"➖ [{self.bot_key}] Quitte : {to_part}")
+                                print(f"➖ [{self.bot_key}] Quitte : {to_part}", flush=True)
                                 await self.part_channels(to_part)
                                 self.joined_channels.difference_update(to_part)
                                 
             except Exception as e:
-                print(f"⚠️ Erreur Sync Twitch : {e}")
+                print(f"⚠️ Erreur Sync Twitch : {e}", flush=True)
             
             await asyncio.sleep(60)
 
     async def event_message(self, message):
         # Ignorer ses propres messages
         if message.echo: return
+
+        print(f"💬 [{self.bot_key}] #{message.channel.name} {message.author.name}: {message.content}")
 
         # Logique simple : Si on mentionne le bot ou un mot clé
         # Tu peux adapter ici : répondre à tout, ou seulement si mentionné

@@ -29,7 +29,7 @@ services:
     container_name: homer-twitch
     restart: always
     command: >
-      sh -c "pip install twitchio && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('homer', os.getenv('PROMPT_HOMER')).run()\""
+      sh -c "pip install twitchio==2.10.0 && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('homer', os.getenv('PROMPT_HOMER')).run()\""
     volumes:
       - ./shared:/app/shared
       - ./.env:/app/.env
@@ -69,7 +69,7 @@ services:
     container_name: cartman-twitch
     restart: always
     command: >
-      sh -c "pip install twitchio && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('cartman', os.getenv('PROMPT_CARTMAN')).run()\""
+      sh -c "pip install twitchio==2.10.0 && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('cartman', os.getenv('PROMPT_CARTMAN')).run()\""
     volumes:
       - ./shared:/app/shared
       - ./.env:/app/.env
@@ -121,6 +121,7 @@ services:
       - PANEL_API_TOKEN=${PANEL_API_TOKEN}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - PROMPT_DEADPOOL=${PROMPT_DEADPOOL}
+      - PYTHONUNBUFFERED=1
     logging: *default-logging
 
   # =========================================
@@ -149,7 +150,7 @@ services:
     container_name: yoda-twitch
     restart: always
     command: >
-      sh -c "pip install twitchio && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('yoda', os.getenv('PROMPT_YODA')).run()\""
+      sh -c "pip install twitchio==2.10.0 && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('yoda', os.getenv('PROMPT_YODA')).run()\""
     volumes:
       - ./shared:/app/shared
       - ./.env:/app/.env
