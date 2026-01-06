@@ -108,8 +108,7 @@ services:
       dockerfile: bots/deadpool/Dockerfile
     container_name: deadpool-twitch
     restart: always
-    command: >
-      sh -c "pip install twitchio && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('deadpool', os.getenv('PROMPT_DEADPOOL')).run()\""
+    command: ["python", "main_twitch.py"]
     volumes:
       - ./shared:/app/shared
       - ./.env:/app/.env
@@ -117,6 +116,7 @@ services:
     environment:
       - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
       - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+      - TWITCH_BOT_ID=1418676924
       - PANEL_API_URL=http://bots-panel:5000
       - PANEL_API_TOKEN=${PANEL_API_TOKEN}
       - OPENAI_API_KEY=${OPENAI_API_KEY}

@@ -34,6 +34,36 @@
       border: 1px solid rgba(239,68,68,0.3); border-radius: 10px;
       font-weight: 700; cursor: pointer;
     }
+    
+    .platform-section {
+      display: block;
+    }
+    
+    .platform-section.hidden {
+      display: none;
+    }
+    
+    /* Style pour les onglets */
+    .tab-btn {
+      padding: 12px 24px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px 8px 0 0;
+      color: var(--text-secondary);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .tab-btn.active {
+      color: var(--text-primary);
+      background: var(--accent);
+    }
   }
 
   /* --- STYLE DES TÂCHES EN TABLEAU (PC) --- */
@@ -49,93 +79,105 @@
     <a href="{{ url_for('dashboard') }}" class="btn sync-btn" style="width:auto; margin:0;">← Retour</a>
   </div>
 
-  <div class="card" style="margin-bottom:50px; border:1px solid rgba(99, 102, 241, 0.3); padding: 30px; background: rgba(15, 23, 42, 0.4);">
-    <h3 style="margin-top:0; color:#fff; margin-bottom: 25px; font-size:1.4rem;">Tâche Automatique</h3>
-    
-    <form method="post" action="{{ url_for('scheduler_create') }}" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:25px; align-items:end;">
+  <!-- ONGLETS DE SÉPARATION -->
+  <div style="display:flex; gap:10px; margin-bottom:30px; border-bottom:2px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+    <button class="tab-btn active" onclick="showTab('discord')" id="discordTab" style="background:var(--accent); color:white;">
+      🔵 Tâches Discord
+    </button>
+    <button class="tab-btn" onclick="showTab('twitch')" id="twitchTab" style="background:rgba(145,70,255,0.2); color:white;">
+      🟣 Tâches Twitch
+    </button>
+  </div>
+
+  <!-- SECTION DISCORD -->
+  <div id="discordSection" class="platform-section">
+    <div class="card" style="margin-bottom:50px; border:1px solid rgba(88,101,242,0.3); padding:30px; background: rgba(88,101,242,0.1);">
+      <h3 style="margin-top:0; color:#fff; margin-bottom:25px; font-size:1.4rem;">🔵 Tâches Discord</h3>
       
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">SUR QUEL SERVEUR ?</label>
-        <select name="guild_discord_id" id="guildSelect" class="input-pill" required>
-          <option value="" disabled selected>Choisir un serveur</option>
-          {% if guilds %}
-            {% for g in guilds %}
-              <option value="{{ g.discord_id }}">{{ g.name }}</option>
-            {% endfor %}
-          {% endif %}
-        </select>
-      </div>
+      <form method="post" action="{{ url_for('scheduler_create') }}" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:25px; align-items:end;">
+        
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">SUR QUEL SERVEUR ?</label>
+          <select name="guild_discord_id" id="guildSelect" class="input-pill" required>
+            <option value="" disabled selected>Choisir un serveur</option>
+            {% if guilds %}
+              {% for g in guilds %}
+                <option value="{{ g.discord_id }}">{{ g.name }}</option>
+              {% endfor %}
+            {% endif %}
+          </select>
+        </div>
 
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUEL BOT ?</label>
-        <select name="bot_key" class="input-pill" required>
-          <option value="" disabled selected>Choisir un bot</option>
-          <option value="deadpool">Deadpool</option>
-          <option value="yoda">Yoda</option>
-          <option value="cartman">Cartman</option>
-          <option value="homer">Homer</option>
-        </select>
-      </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUEL BOT ?</label>
+          <select name="bot_key" class="input-pill" required>
+            <option value="" disabled selected>Choisir un bot</option>
+            <option value="deadpool">Deadpool</option>
+            <option value="yoda">Yoda</option>
+            <option value="cartman">Cartman</option>
+            <option value="homer">Homer</option>
+          </select>
+        </div>
 
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUELLE ACTION ?</label>
-        <select name="task_type" id="taskTypeSelect" class="input-pill" required>
-          <option value="" disabled selected>Choisir une action</option>
-          <option value="news">News (Flux RSS)</option>
-          <option value="meteo">Météo</option>
-          <option value="meme">Meme Aléatoire</option>
-        </select>
-      </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUELLE ACTION ?</label>
+          <select name="task_type" id="taskTypeSelect" class="input-pill" required>
+            <option value="" disabled selected>Choisir une action</option>
+            <option value="news">News (Flux RSS)</option>
+            <option value="meteo">Météo</option>
+            <option value="meme">Meme Aléatoire</option>
+          </select>
+        </div>
 
-      <div style="display:flex; flex-direction:column; gap:10px;" id="paramBox">
-        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;" id="paramLabel">DÉTAIL</label>
-        <input type="text" name="task_param" id="paramInputText" class="input-pill" placeholder="Ex: Paris" style="display:none;">
-        <select name="task_param" id="paramInputSelect" class="input-pill" style="display:none;">
-          <option value="gaming">Gaming</option>
-          <option value="crypto">Crypto</option>
-          <option value="tech">Tech / Geek</option>
-          <option value="world">Actualité Monde</option>
-        </select>
-      </div>
+        <div style="display:flex; flex-direction:column; gap:10px;" id="paramBox">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;" id="paramLabel">DÉTAIL</label>
+          <input type="text" name="task_param" id="paramInputText" class="input-pill" placeholder="Ex: Paris" style="display:none;">
+          <select name="task_param" id="paramInputSelect" class="input-pill" style="display:none;">
+            <option value="gaming">Gaming</option>
+            <option value="crypto">Crypto</option>
+            <option value="tech">Tech / Geek</option>
+            <option value="world">Actualité Monde</option>
+          </select>
+        </div>
 
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">JOUR</label>
-        <select name="day_of_week" class="input-pill" required>
-          <option value="" disabled selected>Choisir le jour</option>
-          <option value="monday">Lundi</option>
-          <option value="tuesday">Mardi</option>
-          <option value="wednesday">Mercredi</option>
-          <option value="thursday">Jeudi</option>
-          <option value="friday">Vendredi</option>
-          <option value="saturday">Samedi</option>
-          <option value="sunday">Dimanche</option>
-        </select>
-      </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">JOUR</label>
+          <select name="day_of_week" class="input-pill" required>
+            <option value="" disabled selected>Choisir le jour</option>
+            <option value="monday">Lundi</option>
+            <option value="tuesday">Mardi</option>
+            <option value="wednesday">Mercredi</option>
+            <option value="thursday">Jeudi</option>
+            <option value="friday">Vendredi</option>
+            <option value="saturday">Samedi</option>
+            <option value="sunday">Dimanche</option>
+          </select>
+        </div>
 
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">HEURE (FRANCE)</label>
-        <input type="time" name="time_of_day" value="00:00" class="input-pill" required>
-      </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">HEURE (FRANCE)</label>
+          <input type="time" name="time_of_day" value="00:00" class="input-pill" required>
+        </div>
 
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">SALON DISCORD</label>
-        <select name="channel_id" id="channelSelect" class="input-pill" required>
-          <option value="" disabled selected>Choisir serveur d'abord</option>
-        </select>
-        <div id="channelLoading" style="display:none; font-size:0.8rem; color:var(--accent); margin-left:15px;">Chargement des salons...</div>
-      </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">SALON DISCORD</label>
+          <select name="channel_id" id="channelSelect" class="input-pill" required>
+            <option value="" disabled selected>Choisir serveur d'abord</option>
+          </select>
+          <div id="channelLoading" style="display:none; font-size:0.8rem; color:var(--accent); margin-left:15px;">Chargement des salons...</div>
+        </div>
 
-      <button type="submit" class="btn-scheduler-hero" 
-              style="justify-content:center; height:50px; margin-top:10px; border-radius:50px; 
+        <button type="submit" class="btn-scheduler-hero" 
+                  style="justify-content:center; height:50px; margin-top:10px; border-radius:50px; 
                      background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
                      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.5); border:1px solid rgba(255,255,255,0.2);
                      font-size:1rem; letter-spacing:1px;">
-        PLANIFIER LA TÂCHE
-      </button>
-    </form>
-  </div>
+          PLANIFIER LA TÂCHE DISCORD
+        </button>
+      </form>
+    </div>
 
-  <h3 style="margin-left:10px; color:#fff;">Tâches actives</h3>
+    <h3 style="margin-left:10px; color:#fff;">Tâches Discord actives</h3>
   
   <div class="card" style="padding:0; border-radius:20px; overflow:hidden; display:block;" class="desktop-view">
     <table class="tasks-table">
@@ -151,12 +193,14 @@
         </tr>
       </thead>
       <tbody>
-      {% for t in tasks %}
+      {% set discord_tasks = tasks | selectattr('task_type', 'ne', 'auto_messages') | list %}
+      {% for t in discord_tasks %}
         <tr style="border-top:1px solid rgba(255,255,255,0.05);">
           <td style="padding:20px;"><span style="font-weight:bold; text-transform:capitalize; color:#fff;">{{ t.bot_key }}</span></td>
           <td style="padding:20px;">
             {% if t.task_type == 'news' %}<span class="chip" style="background:rgba(88,101,242,0.2); color:#5865F2; padding:5px 10px; border-radius:20px; font-size:0.85rem; font-weight:700;">📰 News</span>
             {% elif t.task_type == 'meteo' %}<span class="chip" style="background:rgba(52,211,153,0.2); color:#34d399; padding:5px 10px; border-radius:20px; font-size:0.85rem; font-weight:700;">☁️ Météo</span>
+            {% elif t.task_type == 'meme' %}<span class="chip" style="background:rgba(255,255,255,0.1); padding:5px 10px; border-radius:20px; font-size:0.85rem; font-weight:700;">😂 Meme</span>
             {% else %}<span class="chip" style="background:rgba(255,255,255,0.1); padding:5px 10px; border-radius:20px; font-size:0.85rem;">{{ t.task_type }}</span>{% endif %}
           </td>
           <td style="padding:20px; color:#cbd5e1;">{{ t.task_param|capitalize if t.task_param else '-' }}</td>
@@ -173,40 +217,177 @@
           </td>
         </tr>
       {% else %}
-        <tr><td colspan="7" style="padding:50px; text-align:center; color:var(--secondary); font-style:italic;">Aucune tâche programmée.</td></tr>
+        <tr><td colspan="7" style="padding:50px; text-align:center; color:var(--secondary); font-style:italic;">Aucune tâche Discord planifiée.</td></tr>
       {% endfor %}
       </tbody>
     </table>
     
     <div class="mobile-tasks-list">
-      {% for t in tasks %}
-      <div class="task-card">
-        <div class="task-card-header">
+      {% for t in discord_tasks %}
+        <div class="task-card">
+          <div class="task-card-header">
             <span class="task-bot-name">{{ t.bot_key }}</span>
             {% if t.task_type == 'news' %}<span style="color:#5865F2; font-weight:bold;">📰 News</span>
             {% elif t.task_type == 'meteo' %}<span style="color:#34d399; font-weight:bold;">☁️ Météo</span>
+            {% elif t.task_type == 'meme' %}<span style="color:white; font-weight:bold;">😂 Meme</span>
             {% else %}<span style="color:white;">{{ t.task_type }}</span>{% endif %}
-        </div>
-        
-        <div class="task-row">
+          </div>
+          
+          <div class="task-row">
             <span class="task-label">Détail</span>
             <span class="task-value">{{ t.task_param|capitalize if t.task_param else '-' }}</span>
-        </div>
-        <div class="task-row">
+          </div>
+          <div class="task-row">
             <span class="task-label">Serveur</span>
             <span class="task-value">{% if t.guild %}{{ t.guild.name }}{% else %}Inconnu{% endif %}</span>
-        </div>
-        <div class="task-row">
+          </div>
+          <div class="task-row">
             <span class="task-label">Quand ?</span>
             <span class="task-value" style="color:var(--accent);">{{ t.day_of_week|capitalize }} à {{ t.time_of_day }}</span>
-        </div>
-        
-        <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}">
+          </div>
+          
+          <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}">
             <button class="btn-delete-mobile">SUPPRIMER</button>
-        </form>
-      </div>
+          </form>
+        </div>
       {% else %}
-         <div style="text-align:center; padding:30px; color:var(--secondary);">Aucune tâche.</div>
+        <div style="text-align:center; padding:30px; color:var(--secondary);">Aucune tâche Discord.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- SECTION TWITCH -->
+  <div id="twitchSection" class="platform-section hidden">
+    <div class="card" style="margin-bottom:50px; border:1px solid rgba(145,70,255,0.3); padding:30px; background: rgba(145,70,255,0.1);">
+      <h3 style="margin-top:0; color:#fff; margin-bottom:25px; font-size:1.4rem;">🟣 Tâches Twitch</h3>
+      
+      <form method="post" action="{{ url_for('scheduler_create') }}" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:25px; align-items:end;">
+        
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUELLE CHAÎNE ?</label>
+          <input type="text" name="task_param" id="twitchChannelInput" class="input-pill" placeholder="ID de la chaîne (ex: 1418676924)" required>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUEL BOT ?</label>
+          <select name="bot_key" class="input-pill" required>
+            <option value="" disabled selected>Choisir un bot</option>
+            <option value="deadpool">Deadpool</option>
+            <option value="yoda">Yoda</option>
+            <option value="cartman">Cartman</option>
+            <option value="homer">Homer</option>
+          </select>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUELLE ACTION ?</label>
+          <select name="task_type" id="twitchTaskTypeSelect" class="input-pill" required>
+            <option value="" disabled selected>Choisir une action</option>
+            <option value="auto_messages">Messages Automatiques</option>
+            <option value="news">News (Flux RSS)</option>
+            <option value="meteo">Météo</option>
+            <option value="meme">Meme Aléatoire</option>
+          </select>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">JOUR</label>
+          <select name="day_of_week" class="input-pill" required>
+            <option value="" disabled selected>Choisir le jour</option>
+            <option value="monday">Lundi</option>
+            <option value="tuesday">Mardi</option>
+            <option value="wednesday">Mercredi</option>
+            <option value="thursday">Jeudi</option>
+            <option value="friday">Vendredi</option>
+            <option value="saturday">Samedi</option>
+            <option value="sunday">Dimanche</option>
+          </select>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">HEURE (FRANCE)</label>
+          <input type="time" name="time_of_day" value="00:00" class="input-pill" required>
+        </div>
+
+        <button type="submit" class="btn-scheduler-hero" 
+                  style="justify-content:center; height:50px; margin-top:10px; border-radius:50px; 
+                     background: linear-gradient(135deg, #9146FF 0%, #772CE8 100%); 
+                     box-shadow: 0 4px 20px rgba(145, 70, 255, 0.5); border:1px solid rgba(255,255,255,0.2);
+                     font-size:1rem; letter-spacing:1px;">
+          PLANIFIER LA TÂCHE TWITCH
+        </button>
+      </form>
+    </div>
+
+    <h3 style="margin-left:10px; color:#fff;">Tâches Twitch actives</h3>
+
+    <div class="card" style="padding:0; border-radius:20px; overflow:hidden; display:block;" class="desktop-view">
+    <table class="tasks-table">
+      <thead style="background:rgba(255,255,255,0.03); text-align:left;">
+        <tr>
+          <th style="padding:20px; color:var(--secondary);">Bot</th>
+          <th style="padding:20px; color:var(--secondary);">Action</th>
+          <th style="padding:20px; color:var(--secondary);">Détail</th>
+          <th style="padding:20px; color:var(--secondary);">Chaîne</th>
+          <th style="padding:20px; color:var(--secondary);">Quand ?</th>
+          <th style="padding:20px; text-align:right; color:var(--secondary);">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% set twitch_tasks = tasks | selectattr('task_type', 'eq', 'auto_messages') | list %}
+      {% for t in twitch_tasks %}
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:20px;"><span style="font-weight:bold; text-transform:capitalize; color:#fff;">{{ t.bot_key }}</span></td>
+          <td style="padding:20px;">
+            {% if t.task_type == 'auto_messages' %}<span class="chip" style="background:rgba(145,70,255,0.2); color:#9146FF; padding:5px 10px; border-radius:20px; font-size:0.85rem; font-weight:700;">🤖 Messages Auto</span>
+            {% else %}<span class="chip" style="background:rgba(255,255,255,0.1); padding:5px 10px; border-radius:20px; font-size:0.85rem;">{{ t.task_type }}</span>{% endif %}
+          </td>
+          <td style="padding:20px; color:#cbd5e1;">{{ t.task_param|capitalize if t.task_param else '-' }}</td>
+          <td style="padding:20px; font-weight:600;">{{ t.task_param if t.task_type == 'auto_messages' else '-' }}</td>
+          <td style="padding:20px;">
+            <span style="color:#fff;">{{ t.day_of_week|capitalize }}</span> 
+            <span style="color:var(--secondary);">à {{ t.time_of_day }}</span>
+          </td>
+          <td style="padding:20px; text-align:right;">
+            <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}" style="display:inline;">
+              <button style="background:rgba(239,68,68,0.2); color:#f87171; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; transition:0.2s;" onmouseover="this.style.background='#ef4444';this.style.color='white'" onmouseout="this.style.background='rgba(239,68,68,0.2)';this.style.color='#f87171'">Supprimer</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" style="padding:50px; text-align:center; color:var(--secondary); font-style:italic;">Aucune tâche Twitch planifiée.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    
+    <div class="mobile-tasks-list">
+      {% for t in twitch_tasks %}
+        <div class="task-card">
+          <div class="task-card-header">
+            <span class="task-bot-name">{{ t.bot_key }}</span>
+            {% if t.task_type == 'auto_messages' %}<span style="color:#9146FF; font-weight:bold;">🤖 Messages Auto</span>
+            {% else %}<span style="color:white;">{{ t.task_type }}</span>{% endif %}
+          </div>
+          
+          <div class="task-row">
+            <span class="task-label">Détail</span>
+            <span class="task-value">{{ t.task_param|capitalize if t.task_param else '-' }}</span>
+          </div>
+          <div class="task-row">
+            <span class="task-label">Chaîne</span>
+            <span class="task-value">{{ t.task_param if t.task_type == 'auto_messages' else '-' }}</span>
+          </div>
+          <div class="task-row">
+            <span class="task-label">Quand ?</span>
+            <span class="task-value" style="color:var(--accent);">{{ t.day_of_week|capitalize }} à {{ t.time_of_day }}</span>
+          </div>
+          
+          <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}">
+            <button class="btn-delete-mobile">SUPPRIMER</button>
+          </form>
+        </div>
+      {% else %}
+        <div style="text-align:center; padding:30px; color:var(--secondary);">Aucune tâche Twitch.</div>
       {% endfor %}
     </div>
   </div>
@@ -215,10 +396,12 @@
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const typeSelect = document.getElementById("taskTypeSelect");
+    const twitchTaskTypeSelect = document.getElementById("twitchTaskTypeSelect");
     const paramBox = document.getElementById("paramBox");
     const paramLabel = document.getElementById("paramLabel");
     const paramInputText = document.getElementById("paramInputText");
     const paramInputSelect = document.getElementById("paramInputSelect");
+    const twitchChannelInput = document.getElementById("twitchChannelInput");
 
     function updateFields() {
         const val = typeSelect.value;
@@ -238,10 +421,40 @@ document.addEventListener("DOMContentLoaded", function() {
             paramLabel.innerText = "VILLE";
             paramInputText.style.display = "block";
             paramInputText.setAttribute("name", "task_param");
+        } else if (val === "auto_messages") {
+            paramBox.style.display = "flex";
+            paramLabel.innerText = "CHAÎNE TWITCH";
+            paramInputText.style.display = "block";
+            paramInputText.setAttribute("name", "task_param");
+            paramInputText.placeholder = "ID de la chaîne (ex: 1418676924)";
         }
     }
     typeSelect.addEventListener("change", updateFields);
     updateFields();
+
+    // Gestion des onglets
+    window.showTab = function(platform) {
+        const discordSection = document.getElementById("discordSection");
+        const twitchSection = document.getElementById("twitchSection");
+        const discordTab = document.getElementById("discordTab");
+        const twitchTab = document.getElementById("twitchTab");
+
+        if (platform === 'discord') {
+            discordSection.classList.remove('hidden');
+            twitchSection.classList.add('hidden');
+            discordTab.style.background = 'var(--accent)';
+            discordTab.style.color = 'white';
+            twitchTab.style.background = 'rgba(145,70,255,0.2)';
+            twitchTab.style.color = 'white';
+        } else if (platform === 'twitch') {
+            discordSection.classList.add('hidden');
+            twitchSection.classList.remove('hidden');
+            discordTab.style.background = 'rgba(145,70,255,0.2)';
+            discordTab.style.color = 'white';
+            twitchTab.style.background = 'var(--accent)';
+            twitchTab.style.color = 'white';
+        }
+    }
 
     const guildSelect = document.getElementById("guildSelect");
     const channelSelect = document.getElementById("channelSelect");

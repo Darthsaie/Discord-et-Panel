@@ -234,17 +234,41 @@ def make_app():
         from functools import wraps
         @wraps(view)
         def wrapper(*args, **kwargs):
-            if DEV_MODE:
-                return view(*args, **kwargs)
+            if not session.get("user"):
+                # Rediriger vers la bonne page de login selon la plateforme
+                if session.get("twitch_oauth"):
+                    return redirect(url_for("login_twitch"))
+                else:
+                    return redirect(url_for("login_discord"))
+            
             u = session.get("user") or {}
             uid = str(u.get("id") or "")
+            
+            # Si pas d'admin Discord configuré, autoriser tout utilisateur connecté
             if not ADMIN_DISCORD_IDS:
                 if uid:
                     return view(*args, **kwargs)
-                return redirect(url_for("login_discord"))
+                # Rediriger vers la bonne page de login
+                if session.get("twitch_oauth"):
+                    return redirect(url_for("login_twitch"))
+                else:
+                    return redirect(url_for("login_discord"))
+            
+            # Vérifier admin Discord
             if uid in ADMIN_DISCORD_IDS:
                 return view(*args, **kwargs)
-            abort(403)
+            
+            # Vérifier admin Twitch (même logique pour les admins Twitch)
+            if u.get("platform") == "twitch" and uid:
+                # Pour l'instant, autoriser les utilisateurs Twitch connectés
+                # Plus tard, vous pouvez configurer ADMIN_TWITCH_IDS
+                return view(*args, **kwargs)
+            
+            # Rediriger vers la bonne page de login
+            if session.get("twitch_oauth"):
+                return redirect(url_for("login_twitch"))
+            else:
+                return redirect(url_for("login_discord"))
         return wrapper
 
     def oauth_authorize_url():
@@ -425,14 +449,18 @@ def make_app():
             
             # Ajouter les guilds Twitch si connecté via Twitch
             if session.get("twitch_oauth"):
-                twitch_guilds = db.scalars(select(Guild).where(Guild.platform == "twitch")).all()
-                guilds.extend(twitch_guilds)
+                # Récupérer uniquement la chaîne Twitch de l'utilisateur connecté
+                user_id = session.get("user", {}).get("id")
+                if user_id:
+                    # Chercher la chaîne Twitch qui correspond à l'ID utilisateur
+                    user_twitch_guild = db.scalar(select(Guild).where(Guild.discord_id == user_id, Guild.platform == "twitch"))
+                    if user_twitch_guild:
+                        guilds.append(user_twitch_guild)
             
             # Filtrer uniquement DeadPool pour Twitch si connecté via Twitch
             if session.get("twitch_oauth"):
                 deadpool_bot = next((b for b in bots if b.key == "deadpool"), None)
                 if deadpool_bot:
-                    # Garder seulement les bots DeadPool pour les guilds Twitch
                     bots = [deadpool_bot]
             
             subs = db.scalars(select(Subscription)).all()
@@ -892,7 +920,11 @@ def make_app():
                     if is_allowed:
                         allowed.append(int(s.guild.discord_id))
 
-        return jsonify({"bot_key": bot_key, "allowed_guild_ids": allowed})
+        return jsonify({
+            "bot_key": bot_key, 
+            "allowed_guild_ids": allowed,
+            "allowed_twitch_channels": allowed  # Ajout pour compatibilité Twitch
+        })
 
     @app.get("/api/bot/tasks/<bot_key>")
     def api_bot_tasks(bot_key):
@@ -930,13 +962,76 @@ def make_app():
 
     @app.get("/login")
     def login_discord():
+        # Déconnecter Twitch si connecté
+        if session.get("twitch_oauth"):
+            session.clear()
         url = oauth_authorize_url()
         return render_template("auth_bouncer.html", auth_url=url)
 
     @app.get("/login/twitch")
     def login_twitch():
+        # Déconnecter Discord si connecté
+        if session.get("oauth"):
+            session.clear()
         url = twitch_oauth_authorize_url()
         return render_template("auth_bouncer.html", auth_url=url)
+
+    @app.get("/oauth/callback/twitch")
+    def twitch_oauth_callback():
+        code = request.args.get("code")
+        if not code:
+            return redirect(url_for("dashboard"))
+
+        # Échanger le code contre un access token
+        data = {
+            "client_id": TWITCH_CLIENT_ID,
+            "client_secret": TWITCH_CLIENT_SECRET,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": TWITCH_REDIRECT_URI,
+        }
+        
+        response = requests.post(f"{TWITCH_API_BASE}/token", data=data, timeout=15)
+        response.raise_for_status()
+        token_data = response.json()
+        
+        access_token = token_data["access_token"]
+        
+        # Obtenir les informations utilisateur
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Client-Id": TWITCH_CLIENT_ID
+        }
+        
+        user_response = requests.get(f"{TWITCH_HELIX_API}/users", headers=headers, timeout=15)
+        user_response.raise_for_status()
+        user_data = user_response.json()
+        
+        if not user_data.get("data"):
+            return redirect(url_for("dashboard"))
+            
+        user_info = user_data["data"][0]
+        user_id = user_info["id"]
+        login_name = user_info["login"]
+        display_name = user_info["display_name"]
+        
+        # Créer la session utilisateur
+        session["twitch_oauth"] = {
+            "access_token": access_token,
+            "refresh_token": token_data.get("refresh_token"),
+            "expires_at": dt.datetime.utcnow() + dt.timedelta(seconds=token_data.get("expires_in", 3600))
+        }
+        
+        session["user"] = {
+            "id": user_id,
+            "username": login_name,
+            "display_name": display_name,
+            "avatar": user_info.get("profile_image_url"),
+            "platform": "twitch"
+        }
+        
+        flash(f"Connecté avec succès via Twitch !", "ok")
+        return redirect(url_for("dashboard"))
 
     @app.get("/oauth/callback")
     def oauth_callback():
@@ -1078,51 +1173,80 @@ def make_app():
     @app.get("/admin")
     @admin_required
     def admin_index():
-        return redirect(url_for("admin_subs"))
+        return redirect(url_for("admin_subs_v2"))
 
-    @app.get("/admin/subs")
+    @app.get("/admin/subs-v2")
     @admin_required
-    def admin_subs():
-        page = request.args.get("page", 1, type=int)
-        per_page = 50
-
+    def admin_subs_v2():
+        """Panel admin optimisé pour milliers d'entrées"""
         with Session(app.engine) as db:
+            # Récupérer toutes les subscriptions avec pagination côté serveur
             query = select(Subscription).options(
                 selectinload(Subscription.guild),
                 selectinload(Subscription.bot_type)
             ).order_by(Subscription.id.desc())
 
             all_subs = db.scalars(query).all()
-            total = len(all_subs)
-            start = (page - 1) * per_page
-            end = start + per_page
-            subs = all_subs[start:end]
-            pages = (total + per_page - 1) // per_page
-
+            
+            # Récupérer les guildes Twitch connectées sans subscription
+            twitch_guild_ids_with_subs = {s.guild.discord_id for s in all_subs if s.guild.platform == "twitch"}
+            all_twitch_guilds = db.scalars(select(Guild).where(Guild.platform == "twitch")).all()
+            
+            twitch_connected = []
+            for guild in all_twitch_guilds:
+                if guild.discord_id not in twitch_guild_ids_with_subs:
+                    virtual_sub = type('VirtualSub', (), {
+                        'id': f"twitch_{guild.discord_id}",
+                        'guild': guild,
+                        'bot_type': type('VirtualBot', (), {'key': 'deadpool'})(),
+                        'status': 'connected',
+                        'days_left': None,
+                        'current_period_end': None,
+                        'trial_until': None,
+                        'created_at': None
+                    })()
+                    twitch_connected.append(virtual_sub)
+            
+            # Statistiques
+            discord_subs = [s for s in all_subs if s.guild.platform != "twitch"]
+            twitch_subs = [s for s in all_subs if s.guild.platform == "twitch"]
+            
             stats = {
-                "total": total,
+                "total": len(all_subs),
                 "active": len([s for s in all_subs if s.status in ("active", "lifetime")]),
                 "trial": len([s for s in all_subs if s.status in ("trial", "trialing")]),
                 "canceled": len([s for s in all_subs if s.status in ("canceled", "unpaid", "incomplete")])
             }
+            
+            platform_stats = {
+                "discord": {
+                    "total": len(discord_subs),
+                    "active": len([s for s in discord_subs if s.status in ("active", "lifetime")]),
+                    "trial": len([s for s in discord_subs if s.status in ("trial", "trialing")])
+                },
+                "twitch": {
+                    "total": len(twitch_subs),
+                    "active": len([s for s in twitch_subs if s.status in ("active", "lifetime")]),
+                    "trial": len([s for s in twitch_subs if s.status in ("trial", "trialing")])
+                }
+            }
 
-            locks = db.scalars(select(TrialLock).order_by(TrialLock.id.desc())).all()
             bot_avatars = _get_bot_avatar_urls()
-
             all_guilds = db.scalars(select(Guild)).all()
             guild_map = {g.discord_id: g.name for g in all_guilds}
 
         return render_template(
             "admin_subs.html",
-            subs=subs,
-            locks=locks,
+            subs=all_subs,
+            twitch_connected=twitch_connected,
             bot_defs=BOT_DEFS,
             bot_avatars=bot_avatars,
             guild_map=guild_map,
             now=dt.datetime.utcnow(),
-            page=page,
-            pages=pages,
-            stats=stats
+            stats=stats,
+            platform_stats=platform_stats,
+            page=1,
+            pages=1
         )
 
     @app.post("/admin/subs/create")
@@ -1139,7 +1263,7 @@ def make_app():
 
         st = (request.form.get("status") or "active").strip().lower()
         if st not in ("active", "trial", "canceled", "lifetime"):
-            return redirect(url_for("admin_subs"))
+            return redirect(url_for("admin_subs_v2"))
 
         with Session(app.engine) as db:
             g = db.scalar(select(Guild).where(Guild.discord_id == guild_id))
@@ -1175,7 +1299,7 @@ def make_app():
 
             db.commit()
 
-        return redirect(url_for("admin_subs"))
+        return redirect(url_for("admin_subs_v2"))
 
     @app.post("/admin/subs/sync_stripe/<int:sub_id>")
     @admin_required
@@ -1241,13 +1365,13 @@ def make_app():
         stripe_id = (request.form.get("stripe_id") or "").strip()
         if not stripe_id.startswith("sub_"):
             flash("ID Stripe invalide", "error")
-            return redirect(url_for("admin_subs"))
+            return redirect(url_for("admin_subs_v2"))
 
         with Session(app.engine) as db:
             s = db.get(Subscription, sub_id)
             if not s:
                 flash("Subscription introuvable", "error")
-                return redirect(url_for("admin_subs"))
+                return redirect(url_for("admin_subs_v2"))
 
             try:
                 stripe_sub = stripe.Subscription.retrieve(stripe_id)
@@ -1273,7 +1397,7 @@ def make_app():
             except Exception as e:
                 flash(f"❌ Erreur: {str(e)}", "error")
 
-        return redirect(url_for("admin_subs"))
+        return redirect(url_for("admin_subs_v2"))
 
     @app.post("/admin/subs/set_status/<int:sub_id>")
     @admin_required
@@ -1289,7 +1413,7 @@ def make_app():
                     s.current_period_end = None
                 db.commit()
 
-        return redirect(url_for("admin_subs"))
+        return redirect(url_for("admin_subs_v2"))
 
     @app.post("/admin/subs/delete/<int:sub_id>")
     @admin_required
@@ -1316,6 +1440,63 @@ def make_app():
     return app
 
 
+def register_admin_routes(app):
+    @app.post("/api/admin/subscription")
+    def api_create_subscription():
+        from flask import session
+        # Vérifier si l'utilisateur est admin
+        if session.get("user") != "admin":
+            return jsonify({"success": False, "error": "Unauthorized"}), 401
+        
+        data = request.get_json()
+        
+        try:
+            with Session(app.engine) as db:
+                # Créer la guild si elle n'existe pas
+                guild = db.scalar(select(Guild).where(Guild.discord_id == data['guild_id']))
+                if not guild:
+                    guild = Guild(
+                        discord_id=data['guild_id'],
+                        name=data['guild_name'],
+                        platform=data['platform']
+                    )
+                    db.add(guild)
+                    db.flush()  # Pour obtenir l'ID
+                
+                # Créer la subscription
+                subscription = Subscription(
+                    guild_id=guild.id,
+                    bot_type_id=data['bot_type_id'],
+                    status=data['status']
+                )
+                db.add(subscription)
+                db.commit()
+                
+                return jsonify({"success": True, "subscription_id": subscription.id})
+                
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 400
+
+    @app.get("/api/bot-types")
+    def api_get_bot_types():
+        from flask import session
+        # Vérifier si l'utilisateur est admin
+        if session.get("user") != "admin":
+            return jsonify({"error": "Unauthorized"}), 401
+        
+        try:
+            with Session(app.engine) as db:
+                bot_types = db.scalars(select(BotType)).all()
+                return jsonify([{
+                    "id": bt.id,
+                    "key": bt.key,
+                    "name": bt.name
+                } for bt in bot_types])
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     app = make_app()
+    register_admin_routes(app)
     app.run(debug=True, host="0.0.0.0", port=5000)
