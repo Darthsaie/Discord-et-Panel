@@ -1273,6 +1273,43 @@
       </div>
     </div>
 
+    <!-- TWITCH CONNECTÉS SANS ABONNEMENT -->
+    {% if twitch_connected %}
+    <div style="padding:0 24px 24px 24px;">
+      <div style="background:rgba(139, 92, 246, 0.1); border:1px solid rgba(139, 92, 246, 0.2); border-radius:16px; padding:20px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+          <div style="width:40px; height:40px; background:rgba(139, 92, 246, 0.2); border-radius:10px; display:flex; align-items:center; justify-content:center;">
+            <i class="ph ph-twitch-logo" style="color:#a78bfa; font-size:1.5rem;"></i>
+          </div>
+          <div>
+            <div style="font-weight:700; color:#e2e8f0; font-size:1.1rem;">Chaînes Twitch Connectées</div>
+            <div style="font-size:0.85rem; color:var(--text-secondary);">{{ twitch_connected|length }} chaîne(s) sans abonnement</div>
+          </div>
+        </div>
+        
+        <div style="display:grid; gap:12px;">
+          {% for tc in twitch_connected %}
+          <div style="background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:16px; display:flex; align-items:center; gap:16px;">
+            <div class="bot-avatar" style="background:linear-gradient(135deg, #9146ff, #772ce8);">
+              <i class="ph ph-twitch-logo" style="color:white; font-size:1.2rem;"></i>
+            </div>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:#e2e8f0; font-size:0.95rem;">{{ tc.guild.name }}</div>
+              <div style="font-family:monospace; font-size:0.75rem; color:var(--text-secondary); opacity:0.5;">{{ tc.guild.discord_id }}</div>
+            </div>
+            <span class="status-badge st-active" style="background:rgba(139, 92, 246, 0.15); color:#a78bfa; border-color:rgba(139, 92, 246, 0.3);">
+              Connecté
+            </span>
+            <button class="action-btn btn-edit" onclick="openAddModalForTwitch('{{ tc.guild.discord_id }}', '{{ tc.guild.name|escape }}')" title="Créer un abonnement">
+              <i class="ph ph-plus-circle"></i>
+            </button>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- PAGINATION -->
     {% if pages > 1 %}
     <div style="padding:20px 24px;">
@@ -1590,6 +1627,17 @@ function updateDurationField() {
 
 function openAddModal() { 
   document.getElementById('modalAdd').style.display = 'flex';
+  setTimeout(() => updateDurationField(), 100);
+}
+
+function openAddModalForTwitch(guildId, guildName) {
+  document.getElementById('modalAdd').style.display = 'flex';
+  
+  // Pré-remplir les champs
+  document.querySelector('input[name="guild_discord_id"]').value = guildId;
+  document.querySelector('input[name="guild_name"]').value = guildName;
+  document.querySelector('select[name="bot_key"]').value = 'deadpool';
+  
   setTimeout(() => updateDurationField(), 100);
 }
 
