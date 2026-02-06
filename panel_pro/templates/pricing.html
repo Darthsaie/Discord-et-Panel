@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% set hide_sidebar = true %}
+
+{% block content %}
+<style>
+  .pricing-page { max-width: 1000px; margin: 0 auto; padding: 60px 20px 100px; }
+
+  .pricing-hero {
+    text-align: center; margin-bottom: 64px;
+  }
+  .pricing-hero h1 {
+    font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; margin: 0 0 16px;
+    background: linear-gradient(135deg, #fff, var(--c-accent-light));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: -1px;
+  }
+  .pricing-hero p {
+    color: var(--c-text-muted); font-size: 1.1rem; max-width: 500px; margin: 0 auto;
+  }
+
+  /* Main pricing card */
+  .price-card-main {
+    max-width: 480px; margin: 0 auto 64px;
+    background: var(--c-surface);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--c-border-light);
+    border-radius: var(--r-2xl);
+    padding: 48px 40px;
+    text-align: center;
+    position: relative; overflow: hidden;
+    box-shadow: 0 0 60px var(--c-accent-glow), 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .price-card-main::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--c-accent), #ec4899, var(--c-accent));
+  }
+
+  .price-popular {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 16px; border-radius: var(--r-full);
+    background: linear-gradient(135deg, var(--c-accent), #8b5cf6);
+    color: #fff; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .price-amount {
+    font-size: 4.5rem; font-weight: 900; line-height: 1;
+    background: linear-gradient(135deg, #fff, var(--c-accent-light));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .price-period { color: var(--c-text-muted); font-size: 1rem; margin: 4px 0 32px; }
+
+  .price-features {
+    list-style: none; padding: 0; margin: 0 0 32px;
+    display: flex; flex-direction: column; gap: 14px; text-align: left;
+  }
+  .price-features li {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--c-text); font-size: 0.95rem;
+  }
+  .price-features li i { color: var(--c-success); font-size: 1.2rem; flex-shrink: 0; }
+
+  .price-trial-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: var(--r-full);
+    background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25);
+    color: #4ade80; font-size: 0.8rem; font-weight: 600;
+    margin-bottom: 24px;
+  }
+
+  /* Comparison table */
+  .compare-section { margin-bottom: 64px; }
+  .compare-section h2 {
+    text-align: center; font-size: 1.8rem; font-weight: 800; margin-bottom: 32px;
+  }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 16px 24px;
+    text-align: left;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .compare-table th {
+    background: rgba(255,255,255,0.03);
+    font-weight: 700; font-size: 0.85rem;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--c-text-muted);
+  }
+  .compare-table td { font-size: 0.95rem; }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table .check { color: var(--c-success); font-size: 1.2rem; }
+  .compare-table .cross { color: var(--c-text-dim); font-size: 1.2rem; }
+  .col-highlight {
+    background: rgba(99,102,241,0.06);
+  }
+  .col-highlight-head {
+    background: rgba(99,102,241,0.12) !important;
+    color: var(--c-accent-light) !important;
+  }
+
+  /* FAQ section */
+  .pricing-faq { margin-bottom: 64px; }
+  .pricing-faq h2 {
+    text-align: center; font-size: 1.8rem; font-weight: 800; margin-bottom: 32px;
+  }
+
+  .faq-item {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .faq-item summary {
+    padding: 18px 24px;
+    font-weight: 600; font-size: 0.95rem;
+    cursor: pointer; list-style: none;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: background 0.2s;
+  }
+  .faq-item summary:hover { background: rgba(255,255,255,0.03); }
+  .faq-item summary::after {
+    content: '+'; font-size: 1.3rem; font-weight: 300; color: var(--c-text-muted);
+    transition: transform 0.3s;
+  }
+  .faq-item[open] summary::after { content: '-'; }
+  .faq-item summary::-webkit-details-marker { display: none; }
+
+  .faq-answer {
+    padding: 0 24px 18px;
+    color: var(--c-text-muted); font-size: 0.9rem; line-height: 1.7;
+  }
+
+  @media (max-width: 600px) {
+    .price-card-main { padding: 36px 24px; }
+    .price-amount { font-size: 3.5rem; }
+    .compare-table th, .compare-table td { padding: 12px 16px; font-size: 0.85rem; }
+  }
+</style>
+
+<div class="pricing-page">
+
+  <!-- Hero -->
+  <div class="pricing-hero reveal">
+    <div class="section-label">Tarifs</div>
+    <h1>Tarifs simples et transparents</h1>
+    <p>Un prix unique par bot. Toutes les fonctionnalités incluses, sans surprise.</p>
+  </div>
+
+  <!-- Main price card -->
+  <div class="price-card-main reveal">
+    <div class="price-popular"><i class="ph ph-star"></i> Le plus populaire</div>
+    <div class="price-amount">2.99&euro;</div>
+    <div class="price-period">par mois, par bot</div>
+
+    <div class="price-trial-badge"><i class="ph ph-gift"></i> {{ trial_days }} jour{{ 's' if trial_days > 1 }} d'essai gratuit inclus</div>
+
+    <ul class="price-features">
+      <li><i class="ph-fill ph-check-circle"></i> Toutes les commandes IA (quiz, débat, clash, news...)</li>
+      <li><i class="ph-fill ph-check-circle"></i> Personnalité IA unique du bot</li>
+      <li><i class="ph-fill ph-check-circle"></i> Programmateur automatique</li>
+      <li><i class="ph-fill ph-check-circle"></i> Classement quiz persistant</li>
+      <li><i class="ph-fill ph-check-circle"></i> Accès Twitch (Deadpool)</li>
+      <li><i class="ph-fill ph-check-circle"></i> Mises à jour et nouvelles features</li>
+      <li><i class="ph-fill ph-check-circle"></i> Support Discord prioritaire</li>
+      <li><i class="ph-fill ph-check-circle"></i> Annulation à tout moment</li>
+    </ul>
+
+    {% if logged %}
+      <a href="{{ url_for('dashboard') }}" class="btn-glow" style="width:100%;">
+        <i class="ph ph-squares-four"></i> Aller au Dashboard
+      </a>
+    {% else %}
+      <a href="{{ url_for('login_discord') }}" class="btn-glow" style="width:100%;">
+        <i class="ph ph-rocket-launch"></i> Commencer l'essai gratuit
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Comparison table -->
+  <div class="compare-section reveal">
+    <h2 class="gradient-text">Essai gratuit vs Abonnement</h2>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Fonctionnalité</th>
+          <th>Essai gratuit</th>
+          <th class="col-highlight-head">Abonnement</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Durée</td>
+          <td>{{ trial_days }} jour{{ 's' if trial_days > 1 }}</td>
+          <td class="col-highlight">Illimitée</td>
+        </tr>
+        <tr>
+          <td>Commandes IA</td>
+          <td><i class="ph-fill ph-check-circle check"></i> Toutes</td>
+          <td class="col-highlight"><i class="ph-fill ph-check-circle check"></i> Toutes</td>
+        </tr>
+        <tr>
+          <td>Programmateur</td>
+          <td><i class="ph-fill ph-check-circle check"></i></td>
+          <td class="col-highlight"><i class="ph-fill ph-check-circle check"></i></td>
+        </tr>
+        <tr>
+          <td>Quiz & Classement</td>
+          <td><i class="ph-fill ph-check-circle check"></i></td>
+          <td class="col-highlight"><i class="ph-fill ph-check-circle check"></i></td>
+        </tr>
+        <tr>
+          <td>Support prioritaire</td>
+          <td><i class="ph ph-x-circle cross"></i></td>
+          <td class="col-highlight"><i class="ph-fill ph-check-circle check"></i></td>
+        </tr>
+        <tr>
+          <td>Carte bancaire requise</td>
+          <td>Non</td>
+          <td class="col-highlight">Oui (Stripe sécurisé)</td>
+        </tr>
+        <tr>
+          <td>Renouvellement</td>
+          <td>Automatique (expire)</td>
+          <td class="col-highlight">Mensuel, annulable</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FAQ -->
+  <div class="pricing-faq reveal">
+    <h2 class="gradient-text">Questions fréquentes</h2>
+
+    <details class="faq-item">
+      <summary>Comment fonctionne l'essai gratuit ?</summary>
+      <div class="faq-answer">
+        L'essai gratuit dure {{ trial_days }} jour{{ 's' if trial_days > 1 }} et donne accès à toutes les fonctionnalités du bot choisi. Aucune carte bancaire n'est requise. L'essai est limité à une seule utilisation par compte Discord.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Comment fonctionne le paiement ?</summary>
+      <div class="faq-answer">
+        Le paiement est géré par Stripe, un service sécurisé et certifié PCI DSS. Vous pouvez payer par carte bancaire. L'abonnement est mensuel et se renouvelle automatiquement.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Puis-je annuler à tout moment ?</summary>
+      <div class="faq-answer">
+        Oui, vous pouvez annuler votre abonnement à tout moment depuis le Dashboard. L'accès reste actif jusqu'à la fin de la période payée.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Un abonnement = un bot ou tous les bots ?</summary>
+      <div class="faq-answer">
+        Chaque abonnement est pour un bot spécifique (Homer, Cartman, Deadpool ou Yoda). Si vous souhaitez utiliser plusieurs bots, il faut un abonnement par bot.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Y a-t-il des réductions pour plusieurs bots ?</summary>
+      <div class="faq-answer">
+        Pas pour le moment, mais des offres groupées sont en cours de préparation. Rejoignez notre Discord pour être informé en premier.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Que se passe-t-il si je ne renouvelle pas ?</summary>
+      <div class="faq-answer">
+        Si votre abonnement n'est pas renouvelé, le bot cessera de répondre sur votre serveur à la fin de la période payée. Vos données (scores quiz, configuration) sont conservées pendant 30 jours.
+      </div>
+    </details>
+  </div>
+
+  <!-- CTA -->
+  <div class="text-center reveal">
+    <h2 class="section-title gradient-text">Prêt à essayer ?</h2>
+    <p class="section-desc mx-auto" style="margin-bottom:32px;">Commencez gratuitement, sans engagement.</p>
+    {% if logged %}
+      <a href="{{ url_for('dashboard') }}" class="btn-glow">
+        <i class="ph ph-squares-four"></i> Mon Dashboard
+      </a>
+    {% else %}
+      <a href="{{ url_for('login_discord') }}" class="btn-glow">
+        <i class="ph ph-rocket-launch"></i> Essai gratuit de {{ trial_days }} jours
+      </a>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

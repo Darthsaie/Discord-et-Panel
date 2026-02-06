@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+{% set hide_sidebar = true %}
+
+{% block content %}
+<style>
+  /* Bot colors */
+  .bot-page[data-bot="homer"]    { --bot-color: var(--c-homer);   --bot-glow: rgba(255,212,59,0.2);  --bot-gradient: linear-gradient(135deg, #FFD43B, #F59E0B); }
+  .bot-page[data-bot="cartman"]  { --bot-color: var(--c-cartman);  --bot-glow: rgba(239,68,68,0.2);   --bot-gradient: linear-gradient(135deg, #EF4444, #DC2626); }
+  .bot-page[data-bot="deadpool"] { --bot-color: var(--c-deadpool); --bot-glow: rgba(220,38,38,0.2);   --bot-gradient: linear-gradient(135deg, #DC2626, #991B1B); }
+  .bot-page[data-bot="yoda"]     { --bot-color: var(--c-yoda);    --bot-glow: rgba(34,197,94,0.2);   --bot-gradient: linear-gradient(135deg, #22C55E, #16A34A); }
+
+  .bot-page { max-width: 1000px; margin: 0 auto; padding: 40px 20px 100px; }
+
+  /* Hero */
+  .bot-hero {
+    text-align: center; padding: 60px 20px 40px;
+    position: relative;
+  }
+  .bot-hero::before {
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 400px; border-radius: 50%;
+    background: radial-gradient(circle, var(--bot-glow), transparent 70%);
+    filter: blur(60px); pointer-events: none;
+  }
+
+  .bot-hero-avatar {
+    width: 120px; height: 120px; border-radius: 28px;
+    object-fit: cover; margin: 0 auto 24px;
+    border: 3px solid rgba(255,255,255,0.15);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 40px var(--bot-glow);
+    position: relative; z-index: 1;
+  }
+  .bot-hero-avatar-placeholder {
+    width: 120px; height: 120px; border-radius: 28px;
+    margin: 0 auto 24px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3rem; font-weight: 900; color: #fff;
+    background: var(--bot-gradient);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 40px var(--bot-glow);
+    position: relative; z-index: 1;
+  }
+
+  .bot-hero h1 {
+    font-size: 3rem; font-weight: 900; margin: 0 0 12px;
+    color: var(--bot-color);
+    text-shadow: 0 0 30px var(--bot-glow);
+    position: relative; z-index: 1;
+  }
+  .bot-hero-tagline {
+    font-size: 1.2rem; color: var(--c-text-muted); max-width: 500px; margin: 0 auto;
+    line-height: 1.6; position: relative; z-index: 1;
+  }
+
+  /* Personality */
+  .bot-personality {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-2xl);
+    padding: 32px;
+    margin: 48px 0;
+    border-left: 4px solid var(--bot-color);
+  }
+  .bot-personality h2 {
+    font-size: 1.3rem; font-weight: 800; margin: 0 0 12px;
+    color: var(--bot-color);
+  }
+  .bot-personality p {
+    color: var(--c-text-muted); line-height: 1.7; margin: 0;
+  }
+
+  /* Commands grid */
+  .commands-section h2 {
+    font-size: 1.5rem; font-weight: 800; margin: 0 0 24px;
+  }
+  .commands-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .cmd-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    transition: all 0.3s var(--ease-out);
+  }
+  .cmd-card:hover {
+    border-color: var(--c-border-light);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+  }
+  .cmd-name {
+    font-weight: 700; font-size: 1rem; margin-bottom: 6px;
+    color: var(--bot-color);
+  }
+  .cmd-desc {
+    color: var(--c-text-muted); font-size: 0.85rem; line-height: 1.5;
+  }
+
+  /* Discord chat demo */
+  .chat-demo {
+    background: #313338; border-radius: var(--r-xl);
+    padding: 0; margin: 48px 0; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .chat-header {
+    background: #2b2d31; padding: 14px 20px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    color: var(--c-text-muted); font-weight: 600; font-size: 0.9rem;
+  }
+  .chat-header i { color: #80848e; }
+  .chat-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; }
+
+  .chat-msg {
+    display: flex; gap: 14px;
+  }
+  .chat-msg-avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    object-fit: cover;
+  }
+  .chat-msg-avatar-placeholder {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; color: #fff; font-size: 1rem;
+    background: var(--bot-gradient);
+  }
+  .chat-msg-user-avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    background: #5865F2; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 0.9rem;
+  }
+
+  .chat-msg-content { flex: 1; }
+  .chat-msg-name {
+    font-weight: 600; font-size: 0.95rem; margin-bottom: 4px;
+  }
+  .chat-msg-name.bot-name { color: var(--bot-color); }
+  .chat-msg-name.user-name { color: #5865F2; }
+  .chat-msg-text { color: #dbdee1; font-size: 0.9rem; line-height: 1.5; }
+  .chat-msg-time { color: #80848e; font-size: 0.7rem; margin-left: 8px; font-weight: 400; }
+
+  .chat-embed {
+    background: #2b2d31; border-left: 4px solid var(--bot-color);
+    border-radius: 4px; padding: 12px 16px; margin-top: 8px;
+    max-width: 400px;
+  }
+  .chat-embed-title { font-weight: 600; font-size: 0.9rem; color: #00b0f4; margin-bottom: 4px; }
+  .chat-embed-desc { color: #b5bac1; font-size: 0.85rem; }
+
+  /* CTA */
+  .bot-cta {
+    text-align: center; padding: 48px 0;
+  }
+  .bot-cta h2 {
+    font-size: 1.8rem; font-weight: 800; margin: 0 0 16px;
+    color: var(--bot-color);
+  }
+  .bot-cta p {
+    color: var(--c-text-muted); margin-bottom: 32px; max-width: 400px; margin-left: auto; margin-right: auto;
+  }
+  .btn-bot {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 14px 32px; border-radius: var(--r-md); font-weight: 700; font-size: 1rem;
+    background: var(--bot-gradient); color: #fff; border: none; cursor: pointer;
+    transition: all 0.3s var(--ease-out);
+    box-shadow: 0 8px 25px var(--bot-glow);
+  }
+  .btn-bot:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 35px var(--bot-glow);
+  }
+
+  @media (max-width: 600px) {
+    .bot-hero h1 { font-size: 2.2rem; }
+    .commands-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+{% set bot_info = {
+  "homer": {
+    "tagline": "D'oh! L'IA qui rend ton serveur plus fun qu'une bière au Moe's",
+    "personality": "Homer Simpson est paresseux, obsédé par les donuts, la bière et le canapé. Son humour est bête mais attachant. Il transforme chaque sujet en référence aux Simpsons avec sa maladresse légendaire. Attendez-vous à des réponses absurdes, des D'oh! et beaucoup de rires.",
+    "demo_user_msg": "/quiz",
+    "demo_bot_msg": "D'oh! Un quiz ? Ok mais si c'est sur les donuts, je gagne d'avance !",
+    "demo_embed_title": "Quiz - Culture Générale",
+    "demo_embed_desc": "Quel est le plus grand océan du monde ? Vous avez 30 secondes !"
+  },
+  "cartman": {
+    "tagline": "Respectez mon autoritah! Le bot qui pimente tes discussions",
+    "personality": "Eric Cartman est autoritaire, dramatique et un troll assumé. Il adore provoquer et se croit supérieur à tout le monde. Ses réponses sont piquantes, exagérées et souvent hilarantes. Il ne manquera pas de rappeler à tout le monde qui est le patron.",
+    "demo_user_msg": "/clash @Utilisateur",
+    "demo_bot_msg": "RESPECTE MON AUTORITAH ! Prépare-toi, voilà le verdict...",
+    "demo_embed_title": "Clash Ultime",
+    "demo_embed_desc": "T'es tellement lent que même Internet Explorer te bat à la course !"
+  },
+  "deadpool": {
+    "tagline": "Maximum effort! Memes, chaos et le meilleur bot Twitch",
+    "personality": "Deadpool brise le 4e mur, adore le chaos et les memes. Il est conscient d'être un bot et en joue constamment. Ses réponses sont pleines de références pop culture, d'humour noir et de sarcasme. Aussi disponible sur Twitch pour animer vos lives !",
+    "demo_user_msg": "/meme",
+    "demo_bot_msg": "Maximum effort ! Voilà un meme fraîchement volé de Reddit...",
+    "demo_embed_title": "Meme du jour",
+    "demo_embed_desc": "Quand le stream crash et tu prétends que c'était prévu..."
+  },
+  "yoda": {
+    "tagline": "La Force, puissante dans ce serveur elle est",
+    "personality": "Maître Yoda est sage, philosophe et parle avec sa syntaxe inversée caractéristique. Il dispense des conseils avec humour et sérénité. Chaque réponse est empreinte de sagesse Jedi, mais toujours avec une touche d'humour. Patient, il est. Ennuyeux, jamais.",
+    "demo_user_msg": "/debat AI vs Humains",
+    "demo_bot_msg": "Hmm, intéressant ce débat est. La Force, guider la discussion elle va...",
+    "demo_embed_title": "Débat Épique",
+    "demo_embed_desc": "IA vs Humains : Qui dominera la galaxie ?"
+  }
+} %}
+
+{% set info = bot_info.get(bot_key, bot_info.homer) %}
+{% set avatar = (bot_avatars or {}).get(bot_key) %}
+
+<div class="bot-page" data-bot="{{ bot_key }}">
+
+  <!-- Hero -->
+  <div class="bot-hero reveal">
+    {% if avatar %}
+      <img src="{{ avatar }}" class="bot-hero-avatar" alt="{{ bot_def.name }}">
+    {% else %}
+      <div class="bot-hero-avatar-placeholder">{{ bot_def.name[:1] }}</div>
+    {% endif %}
+    <h1>{{ bot_def.name }}</h1>
+    <p class="bot-hero-tagline">{{ info.tagline }}</p>
+  </div>
+
+  <!-- Personality -->
+  <div class="bot-personality reveal">
+    <h2><i class="ph ph-user-circle"></i> Personnalité</h2>
+    <p>{{ info.personality }}</p>
+  </div>
+
+  <!-- Commands -->
+  <div class="commands-section reveal">
+    <h2><i class="ph ph-terminal"></i> Commandes disponibles</h2>
+    <div class="commands-grid">
+      {% set commands = [
+        {"name": "/news", "desc": "Affiche une actualité commentée par le bot"},
+        {"name": "/meteo", "desc": "Météo en direct avec un commentaire IA"},
+        {"name": "/meme", "desc": "Un meme de Reddit, commenté avec style"},
+        {"name": "/quiz", "desc": "Quiz de culture générale avec classement"},
+        {"name": "/debat", "desc": "Débat épique entre deux bots au choix"},
+        {"name": "/clash", "desc": "Clash humoristique d'un membre du serveur"},
+        {"name": "/recap", "desc": "Flash info des dernières discussions"},
+        {"name": "/classement", "desc": "Top 5 des meilleurs scores au quiz"}
+      ] %}
+      {% for cmd in commands %}
+      <div class="cmd-card">
+        <div class="cmd-name">{{ cmd.name }}</div>
+        <div class="cmd-desc">{{ cmd.desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Discord chat demo -->
+  <div class="chat-demo reveal">
+    <div class="chat-header">
+      <i class="ph ph-hash"></i> général
+    </div>
+    <div class="chat-body">
+      <div class="chat-msg">
+        <div class="chat-msg-user-avatar">U</div>
+        <div class="chat-msg-content">
+          <div class="chat-msg-name user-name">Utilisateur <span class="chat-msg-time">Aujourd'hui à 14:32</span></div>
+          <div class="chat-msg-text">{{ info.demo_user_msg }}</div>
+        </div>
+      </div>
+
+      <div class="chat-msg">
+        {% if avatar %}
+          <img src="{{ avatar }}" class="chat-msg-avatar" alt="{{ bot_def.name }}">
+        {% else %}
+          <div class="chat-msg-avatar-placeholder">{{ bot_def.name[:1] }}</div>
+        {% endif %}
+        <div class="chat-msg-content">
+          <div class="chat-msg-name bot-name">{{ bot_def.name }} <span style="background:rgba(88,101,242,0.3); color:#5865F2; font-size:0.6rem; padding:2px 6px; border-radius:4px; font-weight:400; margin-left:4px;">BOT</span> <span class="chat-msg-time">Aujourd'hui à 14:32</span></div>
+          <div class="chat-msg-text">{{ info.demo_bot_msg }}</div>
+          <div class="chat-embed">
+            <div class="chat-embed-title">{{ info.demo_embed_title }}</div>
+            <div class="chat-embed-desc">{{ info.demo_embed_desc }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="bot-cta reveal">
+    <h2>Adopter {{ bot_def.name }}</h2>
+    <p>Essayez {{ bot_def.name }} gratuitement pendant {{ trial_days }} jour{{ 's' if trial_days > 1 }} sur votre serveur.</p>
+    {% if logged %}
+      <a href="{{ url_for('dashboard') }}" class="btn-bot">
+        <i class="ph ph-squares-four"></i> Aller au Dashboard
+      </a>
+    {% else %}
+      <a href="{{ url_for('login_discord') }}" class="btn-bot">
+        <i class="ph ph-rocket-launch"></i> Commencer l'essai gratuit
+      </a>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

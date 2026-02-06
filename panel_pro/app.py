@@ -2,6 +2,7 @@ import os
 import secrets
 import datetime as dt
 import json
+import logging
 import requests
 from flask import Flask, redirect, url_for, request, render_template, jsonify, flash, session, abort
 from sqlalchemy import create_engine, select, Integer, String, DateTime, ForeignKey, Boolean, event, update
@@ -9,6 +10,14 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship,
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# --- Logging structuré ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger("panel")
 
 SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex(16))
 PANEL_API_TOKEN = os.getenv("PANEL_API_TOKEN")
@@ -170,9 +179,56 @@ TWITCH_API_BASE = "https://id.twitch.tv/oauth2"
 TWITCH_HELIX_API = "https://api.twitch.tv/helix"
 
 
+def _check_api_token():
+    """Vérifie le token API via header Authorization ou query param (fallback)."""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer ") and auth_header[7:] == PANEL_API_TOKEN:
+        return True
+    if request.args.get("token") == PANEL_API_TOKEN:
+        return True
+    return False
+
+
 def make_app():
     app = Flask(__name__)
     app.secret_key = SECRET_KEY
+
+    # --- CSRF Protection ---
+    try:
+        from flask_wtf.csrf import CSRFProtect
+        csrf = CSRFProtect(app)
+        # Exempter les endpoints API et webhooks du CSRF
+        CSRF_EXEMPT_VIEWS = {
+            "stripe_webhook",
+            "api_bot_config",
+            "api_bot_tasks",
+            "api_auto_messages_config",
+            "api_create_subscription",
+            "api_get_bot_types",
+        }
+
+        @app.before_request
+        def _csrf_exempt_api():
+            if request.endpoint in CSRF_EXEMPT_VIEWS:
+                request.csrf_valid = True
+
+        for view_name in CSRF_EXEMPT_VIEWS:
+            csrf.exempt(view_name)
+
+        logger.info("CSRF protection enabled")
+    except ImportError:
+        logger.warning("flask-wtf not installed, CSRF protection disabled")
+
+    # --- Rate Limiting ---
+    try:
+        from flask_limiter import Limiter
+        from flask_limiter.util import get_remote_address
+        limiter = Limiter(get_remote_address, app=app, default_limits=["200 per minute"])
+        app.limiter = limiter
+        logger.info("Rate limiting enabled")
+    except ImportError:
+        limiter = None
+        logger.warning("flask-limiter not installed, rate limiting disabled")
 
     connect_args = {}
     if "sqlite" in DATABASE_URL:
@@ -191,6 +247,23 @@ def make_app():
     Base.metadata.create_all(app.engine)
 
     app.config["BOT_AVATARS"] = None
+
+    # --- Health Check ---
+    @app.get("/health")
+    def health_check():
+        try:
+            with Session(app.engine) as db:
+                db.execute(select(BotType).limit(1))
+            return jsonify({"status": "ok"}), 200
+        except Exception as e:
+            return jsonify({"status": "error", "detail": str(e)}), 500
+
+    # --- Context processor: inject is_admin into all templates ---
+    @app.context_processor
+    def inject_globals():
+        u = session.get("user") or {}
+        uid = str(u.get("id") or "")
+        return {"is_admin": uid in ADMIN_DISCORD_IDS if ADMIN_DISCORD_IDS else False}
 
     def calculate_trial_info(sub):
         if sub.status == "trial" and sub.trial_until:
@@ -217,14 +290,12 @@ def make_app():
 
     def wlog(*args):
         if LOG_WEBHOOK:
-            print("WEBHOOK:", *args, flush=True)
+            logger.info("WEBHOOK: %s", " ".join(str(a) for a in args))
 
     def login_required(view):
         from functools import wraps
         @wraps(view)
         def wrapper(*args, **kwargs):
-            if DEV_MODE:
-                return view(*args, **kwargs)
             if not session.get("user"):
                 return redirect(url_for("login_discord"))
             return view(*args, **kwargs)
@@ -239,28 +310,22 @@ def make_app():
                     return redirect(url_for("login_twitch"))
                 else:
                     return redirect(url_for("login_discord"))
-            
+
             u = session.get("user") or {}
             uid = str(u.get("id") or "")
-            
+
+            if not uid:
+                abort(403)
+
+            # Seuls les IDs listés dans ADMIN_DISCORD_IDS sont admins
             if not ADMIN_DISCORD_IDS:
-                if uid:
-                    return view(*args, **kwargs)
-                if session.get("twitch_oauth"):
-                    return redirect(url_for("login_twitch"))
-                else:
-                    return redirect(url_for("login_discord"))
-            
+                logger.warning("ADMIN_DISCORD_IDS is empty - no admin access possible")
+                abort(403)
+
             if uid in ADMIN_DISCORD_IDS:
                 return view(*args, **kwargs)
-            
-            if u.get("platform") == "twitch" and uid:
-                return view(*args, **kwargs)
-            
-            if session.get("twitch_oauth"):
-                return redirect(url_for("login_twitch"))
-            else:
-                return redirect(url_for("login_discord"))
+
+            abort(403)
         return wrapper
 
     def oauth_authorize_url():
@@ -415,12 +480,34 @@ def make_app():
 
     @app.get("/")
     def index():
-        logged = bool(session.get("user")) or DEV_MODE
-        return render_template("home.html", logged=logged, dev_mode=DEV_MODE, trial_days=TRIAL_DAYS, current_user=session.get("user"))
+        logged = bool(session.get("user"))
+        bot_avatars = _get_bot_avatar_urls()
+        return render_template("home.html", logged=logged, dev_mode=DEV_MODE, trial_days=TRIAL_DAYS, current_user=session.get("user"), bot_avatars=bot_avatars, bot_defs=BOT_DEFS)
+
+    @app.get("/pricing")
+    def pricing():
+        logged = bool(session.get("user"))
+        bot_avatars = _get_bot_avatar_urls()
+        return render_template("pricing.html", logged=logged, trial_days=TRIAL_DAYS, bot_avatars=bot_avatars, bot_defs=BOT_DEFS, current_user=session.get("user"))
+
+    @app.get("/bots/<bot_key>")
+    def bot_page(bot_key):
+        bot_def = BOT_DEFS.get(bot_key)
+        if not bot_def:
+            return redirect(url_for("index"))
+        logged = bool(session.get("user"))
+        bot_avatars = _get_bot_avatar_urls()
+        return render_template("bot_page.html", bot_key=bot_key, bot_def=bot_def, logged=logged, trial_days=TRIAL_DAYS, bot_avatars=bot_avatars, bot_defs=BOT_DEFS, current_user=session.get("user"))
+
+    @app.get("/faq")
+    def faq():
+        logged = bool(session.get("user"))
+        return render_template("faq.html", logged=logged, current_user=session.get("user"))
 
     @app.get("/dashboard")
+    @login_required
     def dashboard():
-        logged = bool(session.get("user")) or DEV_MODE
+        logged = True
         ids = session.get("admin_guild_ids") or []
         guild_icons = session.get("guild_icons") or {}
 
@@ -462,7 +549,7 @@ def make_app():
             active_lock = None
             trial_ever = False
             if logged:
-                user_id = (session.get("user") or {}).get("id") or "dev"
+                user_id = (session.get("user") or {}).get("id")
                 now = dt.datetime.utcnow()
                 with Session(app.engine) as db2:
                     active_lock = db2.scalar(
@@ -547,8 +634,9 @@ def make_app():
         return render_template("leaderboard.html", scores=scores)
 
     @app.post("/trial/start/<bot_key>/<guild_id>")
+    @login_required
     def trial_start(bot_key, guild_id):
-        user_id = (session.get("user") or {}).get("id") or ("dev" if DEV_MODE else None)
+        user_id = (session.get("user") or {}).get("id")
         if not user_id:
             flash("Tu dois être connecté.", "error")
             return redirect(url_for("dashboard"))
@@ -602,9 +690,8 @@ def make_app():
         return redirect(url_for("dashboard"))
 
     @app.post("/trial/cancel/<bot_key>/<guild_id>")
+    @admin_required
     def trial_cancel(bot_key, guild_id):
-        if not DEV_MODE:
-            abort(403)
 
         with Session(app.engine) as db:
             g = db.scalar(select(Guild).where(Guild.discord_id == guild_id))
@@ -866,12 +953,14 @@ def make_app():
             return redirect(url_for("dashboard"))
 
         cid = bot_def["client_id"]
-        oauth = f"https://discord.com/api/oauth2/authorize?client_id={cid}&permissions=8&scope=bot&guild_id={guild_id}&disable_guild_select=true"
+        # Permissions: Send Messages, Embed Links, Read Messages, Read Message History, Use Slash Commands
+        perms = 277025770560
+        oauth = f"https://discord.com/api/oauth2/authorize?client_id={cid}&permissions={perms}&scope=bot%20applications.commands&guild_id={guild_id}&disable_guild_select=true"
         return redirect(oauth)
 
     @app.get("/api/bot/config/<bot_key>")
     def api_bot_config(bot_key):
-        if request.args.get("token") != PANEL_API_TOKEN:
+        if not _check_api_token():
             return jsonify({"error": "unauthorized"}), 401
 
         now = dt.datetime.utcnow()
@@ -915,7 +1004,7 @@ def make_app():
 
     @app.get("/api/bot/tasks/<bot_key>")
     def api_bot_tasks(bot_key):
-        if request.args.get("token") != PANEL_API_TOKEN:
+        if not _check_api_token():
             return jsonify({"error": "unauthorized"}), 401
 
         with Session(app.engine) as db:
@@ -939,6 +1028,75 @@ def make_app():
                     })
 
         return jsonify(data)
+
+    @app.get("/admin/add-twitch-user")
+    @admin_required
+    def admin_add_twitch_user():
+        return render_template("admin_add_twitch.html")
+    
+    @app.post("/admin/add-twitch-user")
+    @admin_required
+    def admin_add_twitch_user_post():
+        twitch_id = request.form.get("twitch_id")
+        twitch_login = request.form.get("twitch_login")
+        
+        if not twitch_id or not twitch_login:
+            flash("ID et login requis", "error")
+            return redirect(url_for("admin_add_twitch_user"))
+        
+        try:
+            with Session(app.engine) as db:
+                # Vérifier si la guild existe déjà
+                existing_guild = db.scalar(select(Guild).where(Guild.discord_id == twitch_id, Guild.platform == "twitch"))
+                if existing_guild:
+                    flash(f"La guild Twitch pour {twitch_login} existe déjà", "info")
+                    return redirect(url_for("admin_subs_v2"))
+                
+                # Créer la guild Twitch
+                twitch_guild = Guild(
+                    discord_id=twitch_id,
+                    name=twitch_login.lower(),
+                    platform="twitch"
+                )
+                db.add(twitch_guild)
+                db.flush()
+                
+                # Créer la subscription pour deadpool
+                deadpool_bot = db.scalar(select(BotType).where(BotType.key == "deadpool"))
+                if deadpool_bot:
+                    # Créer un essai gratuit de 7 jours
+                    trial_until = dt.datetime.utcnow() + dt.timedelta(days=7)
+                    subscription = Subscription(
+                        guild_id=twitch_guild.id,
+                        bot_type_id=deadpool_bot.id,
+                        status="trial",
+                        trial_until=trial_until,
+                        created_at=dt.datetime.utcnow()
+                    )
+                    db.add(subscription)
+                
+                db.commit()
+                flash(f"✅ Utilisateur Twitch {twitch_login} ajouté avec succès !", "ok")
+                wlog(f"✅ Admin ajouté user Twitch: {twitch_login} (ID: {twitch_id})")
+                
+        except Exception as e:
+            flash(f"Erreur: {e}", "error")
+            wlog(f"❌ Erreur ajout user Twitch: {e}")
+        
+        return redirect(url_for("admin_subs_v2"))
+
+    @app.post("/admin/locks/release/<int:lock_id>")
+    @admin_required
+    def admin_release_lock(lock_id):
+        with Session(app.engine) as db:
+            lock = db.get(TrialLock, lock_id)
+            if lock:
+                db.delete(lock)
+                db.commit()
+                wlog(f"✅ Admin released trial lock: {lock_id}")
+            else:
+                wlog(f"❌ Trial lock not found: {lock_id}")
+        return redirect(url_for("admin_subs_v2"))
 
     @app.post("/logout")
     @app.get("/logout")
@@ -1030,7 +1188,45 @@ def make_app():
             "platform": "twitch"
         }
         
-        flash(f"Connecté avec succès en tant que {user_info['display_name']} !", "ok")
+        # Créer automatiquement la guild Twitch et la subscription pour deadpool
+        with Session(app.engine) as db:
+            # Vérifier si la guild Twitch existe déjà
+            existing_guild = db.scalar(select(Guild).where(Guild.discord_id == user_info["id"], Guild.platform == "twitch"))
+            if not existing_guild:
+                # Créer la guild Twitch
+                twitch_guild = Guild(
+                    discord_id=user_info["id"],
+                    name=user_info["login"],  # Utiliser le login comme nom de chaîne
+                    platform="twitch",
+                    icon_url=user_info.get("profile_image_url")
+                )
+                db.add(twitch_guild)
+                db.flush()
+                
+                # Créer la subscription pour deadpool
+                deadpool_bot = db.scalar(select(BotType).where(BotType.key == "deadpool"))
+                if deadpool_bot:
+                    # Vérifier si une subscription existe déjà
+                    existing_sub = db.scalar(select(Subscription).where(
+                        Subscription.guild_id == twitch_guild.id,
+                        Subscription.bot_type_id == deadpool_bot.id
+                    ))
+                    if not existing_sub:
+                        # Créer un essai gratuit de 7 jours pour les nouveaux utilisateurs Twitch
+                        trial_until = dt.datetime.utcnow() + dt.timedelta(days=7)
+                        subscription = Subscription(
+                            guild_id=twitch_guild.id,
+                            bot_type_id=deadpool_bot.id,
+                            status="trial",
+                            trial_until=trial_until,
+                            created_at=dt.datetime.utcnow()
+                        )
+                        db.add(subscription)
+                
+                db.commit()
+                print(f"✅ Création guild Twitch et essai 7j pour {user_info['login']}")
+        
+        flash(f"Connecté avec succès en tant que {user_info['display_name']} ! 🎁 Essai gratuit de 7 jours offert !", "ok")
         return redirect(url_for("dashboard"))
 
     @app.get("/oauth/callback")
@@ -1086,6 +1282,7 @@ def make_app():
         return redirect(url_for("dashboard"))
 
     @app.get("/stripe/status")
+    @admin_required
     def stripe_status():
         with Session(app.engine) as db:
             subs = db.scalars(
@@ -1240,6 +1437,9 @@ def make_app():
             bot_avatars = _get_bot_avatar_urls()
             all_guilds = db.scalars(select(Guild)).all()
             guild_map = {g.discord_id: g.name for g in all_guilds}
+            
+            # Récupérer les trial locks pour la gestion des essais
+            locks = db.scalars(select(TrialLock).order_by(TrialLock.until.desc())).all()
 
         return render_template(
             "admin_subs.html",
@@ -1251,6 +1451,7 @@ def make_app():
             now=dt.datetime.utcnow(),
             stats=stats,
             platform_stats=platform_stats,
+            locks=locks,
             page=1,
             pages=1
         )
@@ -1432,25 +1633,18 @@ def make_app():
 
         return jsonify({"success": True})
 
-    @app.post("/admin/locks/release/<int:lock_id>")
-    @admin_required
-    def admin_release_lock(lock_id: int):
-        with Session(app.engine) as db:
-            lock = db.get(TrialLock, lock_id)
-            if lock:
-                db.delete(lock)
-                db.commit()
-
-        return jsonify({"success": True})
+    # --- Admin API routes (intégrées dans make_app) ---
+    _register_admin_routes(app)
 
     return app
 
 
-def register_admin_routes(app):
+def _register_admin_routes(app):
     @app.post("/api/admin/subscription")
     def api_create_subscription():
-        from flask import session
-        if session.get("user") != "admin":
+        u = session.get("user") or {}
+        uid = str(u.get("id") or "")
+        if uid not in ADMIN_DISCORD_IDS:
             return jsonify({"success": False, "error": "Unauthorized"}), 401
         
         data = request.get_json()
@@ -1482,8 +1676,9 @@ def register_admin_routes(app):
 
     @app.get("/api/bot-types")
     def api_get_bot_types():
-        from flask import session
-        if session.get("user") != "admin":
+        u = session.get("user") or {}
+        uid = str(u.get("id") or "")
+        if uid not in ADMIN_DISCORD_IDS:
             return jsonify({"error": "Unauthorized"}), 401
         
         try:
@@ -1496,6 +1691,53 @@ def register_admin_routes(app):
                 } for bt in bot_types])
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
+    @app.get("/api/discord/channels/<guild_id>")
+    def api_discord_channels(guild_id):
+        """Récupère les salons d'un serveur Discord pour le planificateur"""
+        if not session.get("user"):
+            return jsonify({"error": "Unauthorized"}), 401
+
+        # Vérifier que l'utilisateur a accès à ce guild
+        admin_ids = session.get("admin_guild_ids") or []
+        u = session.get("user") or {}
+        if guild_id not in admin_ids and str(u.get("id")) != str(guild_id):
+            return jsonify({"error": "Forbidden"}), 403
+        
+        try:
+            # Utiliser le token du bot deadpool pour récupérer les salons
+            deadpool_token = os.getenv("DEADPOOL_TOKEN")
+            if not deadpool_token:
+                print("❌ DEADPOOL_TOKEN non trouvé")
+                return jsonify([])
+            
+            # Appel à l'API Discord pour récupérer les salons du serveur
+            headers = {
+                "Authorization": f"Bot {deadpool_token}",
+                "Content-Type": "application/json"
+            }
+            
+            # Récupérer les salons textuels uniquement
+            url = f"https://discord.com/api/v10/guilds/{guild_id}/channels"
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                channels_data = response.json()
+                # Filtrer uniquement les salons textuels (type 0)
+                text_channels = [
+                    {"id": str(ch["id"]), "name": ch["name"]}
+                    for ch in channels_data 
+                    if ch.get("type") == 0  # 0 = text channel
+                ]
+                print(f"✅ Récupéré {len(text_channels)} salons pour guild {guild_id}")
+                return jsonify(text_channels)
+            else:
+                print(f"❌ Erreur API Discord: {response.status_code} - {response.text}")
+                return jsonify([])
+            
+        except Exception as e:
+            print(f"Erreur récupération salons Discord: {e}")
+            return jsonify([])
 
     # --- AJOUT POUR CONFIGURATION TWITCH ---
     CONFIG_FILE = os.path.join(os.path.dirname(__file__), "bot_config.json")
@@ -1511,14 +1753,12 @@ def register_admin_routes(app):
 
     @app.route('/api/bot/auto-messages/<bot_key>', methods=['GET', 'POST'])
     def api_auto_messages_config(bot_key):
-        if request.args.get("token") != PANEL_API_TOKEN and request.method == 'GET':
-             pass 
-        
         config = load_bot_config()
         bot_config = config.get(bot_key, {"enabled": False, "interval": 30})
 
         if request.method == 'POST':
-            if not session.get('user'): return jsonify({"error": "Unauthorized"}), 401
+            if not session.get('user'):
+                return jsonify({"error": "Unauthorized"}), 401
             data = request.json
             bot_config.update({
                 "enabled": bool(data.get("enabled")),
@@ -1528,11 +1768,17 @@ def register_admin_routes(app):
             save_bot_config(config)
             return jsonify({"success": True, "config": bot_config})
 
+        # GET: bots use API token, users use session
+        if not (_check_api_token() or session.get('user')):
+            return jsonify({"error": "Unauthorized"}), 401
+
         return jsonify(bot_config)
     # ---------------------------------------
 
 
 if __name__ == "__main__":
     app = make_app()
-    register_admin_routes(app)
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5000)
+
+# Créer l'application globale pour gunicorn
+app = make_app()

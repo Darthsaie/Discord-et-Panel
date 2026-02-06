@@ -1,31 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
-<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <style>
-  :root {
-    --bg-primary: #0a0e1a;
-    --bg-secondary: #111827;
-    --bg-card: rgba(17, 24, 39, 0.6);
-    --border-color: rgba(255, 255, 255, 0.06);
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --accent: #6366f1;
-    --accent-glow: rgba(99, 102, 241, 0.3);
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-  }
-
-  * { box-sizing: border-box; }
-  
-  body {
-    background: linear-gradient(135deg, #0a0e1a 0%, #1a1f3a 50%, #0f1729 100%);
-    min-height: 100vh;
-  }
+  /* Use design tokens from base.html — no duplicate :root needed */
 
   /* === BACKGROUND EFFECTS === */
   .admin-container {
@@ -1757,48 +1736,48 @@ function clearSelection() {
 
 function exportSelected() {
   const selected = Array.from(document.querySelectorAll('.row-select:checked')).map(cb => cb.dataset.id);
-  Toastify({ text: `Export de ${selected.length} item(s)`, duration: 2000, style: { background: '#6366f1' } }).showToast();
+  showAdminToast('Export de ' + selected.length + ' item(s)', '#6366f1');
 }
 
 function exportCSV() {
-  Toastify({ text: '✅ Export CSV en cours...', duration: 2000, style: { background: '#10b981' } }).showToast();
+  showAdminToast('Export CSV en cours...', '#10b981');
 }
 
 function refreshTable() {
-  Toastify({ text: '🔄 Actualisation...', duration: 1000, style: { background: '#6366f1' } }).showToast();
+  showAdminToast('Actualisation...', '#6366f1');
   setTimeout(() => location.reload(), 500);
 }
 
 function toggleAutoRefresh() {
   isAutoRefresh = !isAutoRefresh;
   const btn = document.getElementById('autoRefreshBtn');
-  
+
   if (isAutoRefresh) {
     btn.classList.add('active');
     autoRefreshInterval = setInterval(() => refreshTable(), 30000);
-    Toastify({ text: '🔄 Auto-refresh ON', duration: 2000, style: { background: '#10b981' } }).showToast();
+    showAdminToast('Auto-refresh ON', '#10b981');
   } else {
     btn.classList.remove('active');
     clearInterval(autoRefreshInterval);
-    Toastify({ text: 'Auto-refresh OFF', duration: 2000, style: { background: '#64748b' } }).showToast();
+    showAdminToast('Auto-refresh OFF', '#64748b');
   }
 }
 
 function syncStripe(id) {
   if (!confirm('Synchroniser avec Stripe ?')) return;
-  
+
   const btn = event.target.closest('button');
   btn.innerHTML = '<span class="loading-spinner"></span>';
   btn.disabled = true;
-  
-  fetch(`/admin/subs/sync_stripe/${id}`, { method: 'POST' })
+
+  fetch('/admin/subs/sync_stripe/' + id, { method: 'POST' })
     .then(r => r.json())
     .then(d => {
       if (d.success) {
-        Toastify({ text: '✅ Synchronisé', duration: 2000, style: { background: '#10b981' } }).showToast();
+        showAdminToast('Synchronise avec succes', '#10b981');
         setTimeout(() => location.reload(), 1000);
       } else {
-        Toastify({ text: '❌ ' + d.error, duration: 4000, style: { background: '#ef4444' } }).showToast();
+        showAdminToast('Erreur: ' + d.error, '#ef4444');
         btn.innerHTML = '<i class="ph ph-arrows-clockwise"></i>';
         btn.disabled = false;
       }
@@ -1806,30 +1785,29 @@ function syncStripe(id) {
 }
 
 function deleteSub(id) {
-  if (!confirm('⚠️ Supprimer définitivement ?')) return;
-  
-  fetch(`/admin/subs/delete/${id}`, { method: 'POST' })
+  if (!confirm('Supprimer definitivement ?')) return;
+
+  fetch('/admin/subs/delete/' + id, { method: 'POST' })
     .then(() => {
-      Toastify({ text: '✅ Supprimé', duration: 2000, style: { background: '#ef4444' } }).showToast();
+      showAdminToast('Supprime', '#ef4444');
       setTimeout(() => location.reload(), 800);
     });
 }
 
 function releaseLock(id) {
-  if (!confirm('Libérer ce lock ?')) return;
-  
-  fetch(`/admin/locks/release/${id}`, { method: 'POST' })
+  if (!confirm('Liberer ce lock ?')) return;
+
+  fetch('/admin/locks/release/' + id, { method: 'POST' })
     .then(() => {
-      Toastify({ text: '✅ Lock libéré', duration: 2000, style: { background: '#10b981' } }).showToast();
+      showAdminToast('Lock libere', '#10b981');
       setTimeout(() => location.reload(), 800);
     });
 }
 
 function clearAllLocks() {
-  if (!confirm('⚠️ SUPPRIMER TOUS LES LOCKS ? Action irréversible !')) return;
-  
-  Toastify({ text: '🚧 Fonction à implémenter côté serveur', duration: 3000, style: { background: '#f59e0b' } }).showToast();
-  // TODO: Ajouter endpoint /admin/locks/clear_all
+  if (!confirm('SUPPRIMER TOUS LES LOCKS ? Action irreversible !')) return;
+
+  showAdminToast('Fonction a implementer cote serveur', '#f59e0b');
 }
 
 document.addEventListener('keydown', e => {
@@ -1846,7 +1824,25 @@ document.addEventListener('keydown', e => {
   }
 });
 
-console.log('✅ Panel Admin 4U BOT V3 initialisé');
+// Built-in toast (replaces Toastify)
+function showAdminToast(msg, bg) {
+  var t = document.getElementById('adminToast');
+  if (!t) return;
+  t.style.background = bg || 'var(--c-surface)';
+  t.style.color = '#fff';
+  t.textContent = msg;
+  t.style.display = 'flex';
+  setTimeout(function() { t.style.transform = 'translateY(0)'; t.style.opacity = '1'; }, 10);
+  setTimeout(function() {
+    t.style.transform = 'translateY(20px)'; t.style.opacity = '0';
+    setTimeout(function() { t.style.display = 'none'; }, 300);
+  }, 3000);
+}
+
+console.log('Panel Admin 4U BOT V3 initialise');
 </script>
+
+<!-- Toast element -->
+<div id="adminToast" style="position:fixed; bottom:24px; right:24px; padding:14px 24px; border-radius:12px; font-weight:600; font-size:0.9rem; z-index:9999; display:none; align-items:center; gap:8px; backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.1); box-shadow:0 12px 40px rgba(0,0,0,0.4); transform:translateY(20px); opacity:0; transition:all 0.3s cubic-bezier(0.4,0,0.2,1);"></div>
 
 {% endblock %}

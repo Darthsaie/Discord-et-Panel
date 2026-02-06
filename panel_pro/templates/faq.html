@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% set hide_sidebar = true %}
+
+{% block content %}
+<style>
+  .faq-page { max-width: 800px; margin: 0 auto; padding: 60px 20px 100px; }
+
+  .faq-hero {
+    text-align: center; margin-bottom: 48px;
+  }
+  .faq-hero h1 {
+    font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; margin: 0 0 16px;
+    background: linear-gradient(135deg, #fff, var(--c-accent-light));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: -1px;
+  }
+  .faq-hero p {
+    color: var(--c-text-muted); font-size: 1.1rem;
+  }
+
+  /* Tabs */
+  .faq-tabs {
+    display: flex; gap: 8px; margin-bottom: 32px; flex-wrap: wrap;
+  }
+  .faq-tab {
+    padding: 10px 20px; border-radius: var(--r-full);
+    background: rgba(255,255,255,0.05); border: 1px solid var(--c-border);
+    color: var(--c-text-muted); font-weight: 600; font-size: 0.85rem;
+    cursor: pointer; transition: all 0.2s var(--ease-out);
+  }
+  .faq-tab:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .faq-tab.active {
+    background: rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.4);
+    color: var(--c-accent-light);
+  }
+
+  /* Categories */
+  .faq-category { display: none; }
+  .faq-category.active { display: block; }
+
+  .faq-category-title {
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;
+    color: var(--c-accent-light); margin-bottom: 16px;
+  }
+
+  /* Accordion items */
+  .faq-item {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .faq-item:hover { border-color: var(--c-border-light); }
+  .faq-item[open] { border-color: rgba(99,102,241,0.3); }
+
+  .faq-item summary {
+    padding: 18px 24px;
+    font-weight: 600; font-size: 0.95rem;
+    cursor: pointer; list-style: none;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: background 0.2s;
+    gap: 16px;
+  }
+  .faq-item summary:hover { background: rgba(255,255,255,0.03); }
+  .faq-item summary::after {
+    content: '+'; font-size: 1.4rem; font-weight: 300; color: var(--c-text-muted);
+    transition: transform 0.3s;
+    flex-shrink: 0;
+  }
+  .faq-item[open] summary::after { content: '-'; }
+  .faq-item summary::-webkit-details-marker { display: none; }
+
+  .faq-answer {
+    padding: 0 24px 20px;
+    color: var(--c-text-muted); font-size: 0.9rem; line-height: 1.8;
+  }
+  .faq-answer a { color: var(--c-accent-light); text-decoration: underline; }
+
+  /* Contact CTA */
+  .faq-contact {
+    margin-top: 64px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-2xl);
+    padding: 48px 32px;
+    text-align: center;
+  }
+  .faq-contact h2 {
+    font-size: 1.5rem; font-weight: 800; margin: 0 0 12px;
+  }
+  .faq-contact p {
+    color: var(--c-text-muted); margin-bottom: 24px;
+  }
+
+  @media (max-width: 600px) {
+    .faq-tabs { gap: 6px; }
+    .faq-tab { padding: 8px 14px; font-size: 0.8rem; }
+    .faq-item summary { padding: 16px 18px; font-size: 0.9rem; }
+    .faq-answer { padding: 0 18px 16px; }
+  }
+</style>
+
+<div class="faq-page">
+
+  <!-- Hero -->
+  <div class="faq-hero reveal">
+    <div class="section-label">FAQ</div>
+    <h1>Questions fréquentes</h1>
+    <p>Tout ce que vous devez savoir sur 4U BOT</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="faq-tabs reveal" id="faqTabs">
+    <button class="faq-tab active" data-tab="general">Général</button>
+    <button class="faq-tab" data-tab="billing">Facturation</button>
+    <button class="faq-tab" data-tab="tech">Technique</button>
+  </div>
+
+  <!-- GENERAL -->
+  <div class="faq-category active" id="faq-general">
+    <div class="faq-category-title">Général</div>
+
+    <details class="faq-item reveal">
+      <summary>C'est quoi 4U BOT ?</summary>
+      <div class="faq-answer">
+        4U BOT est un service de bots IA pour Discord et Twitch. Chaque bot (Homer, Cartman, Deadpool, Yoda) a sa propre personnalité et peut animer votre communauté avec des quiz, débats, memes, météo, news et bien plus.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Quels bots sont disponibles ?</summary>
+      <div class="faq-answer">
+        Nous proposons 4 bots aux personnalités distinctes :
+        <strong>Homer</strong> (humour bête et attachant),
+        <strong>Cartman</strong> (autoritaire et provocateur),
+        <strong>Deadpool</strong> (chaos, memes et 4e mur) et
+        <strong>Yoda</strong> (sage et philosophe).
+        Chaque bot utilise l'IA pour générer des réponses uniques et dans le style du personnage.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Est-ce que ça fonctionne sur Twitch ?</summary>
+      <div class="faq-answer">
+        Oui ! Deadpool est disponible sur Twitch. Connectez-vous avec votre compte Twitch sur le panel et activez l'essai gratuit pour l'utiliser sur votre chaîne.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Combien de serveurs puis-je ajouter ?</summary>
+      <div class="faq-answer">
+        Chaque abonnement couvre un serveur Discord (ou une chaîne Twitch). Vous pouvez souscrire plusieurs abonnements pour différents serveurs.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Le bot répond-il automatiquement aux messages ?</summary>
+      <div class="faq-answer">
+        Oui, le bot répond quand on le mentionne dans un message. Il utilise aussi des commandes slash (/quiz, /news, etc.) et peut envoyer des messages programmés automatiquement.
+      </div>
+    </details>
+  </div>
+
+  <!-- BILLING -->
+  <div class="faq-category" id="faq-billing">
+    <div class="faq-category-title">Facturation</div>
+
+    <details class="faq-item reveal">
+      <summary>Combien ça coûte ?</summary>
+      <div class="faq-answer">
+        Chaque bot coûte <strong>2.99 &euro; par mois</strong>. Toutes les fonctionnalités sont incluses. Il n'y a pas de frais cachés ni de niveaux premium.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Comment fonctionne l'essai gratuit ?</summary>
+      <div class="faq-answer">
+        Vous bénéficiez d'un essai gratuit à la première utilisation. Aucune carte bancaire n'est requise. L'essai est limité à une seule fois par compte Discord.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Quels moyens de paiement sont acceptés ?</summary>
+      <div class="faq-answer">
+        Le paiement est géré par <strong>Stripe</strong>, qui accepte les cartes Visa, Mastercard, American Express et d'autres. Le paiement est 100% sécurisé et conforme PCI DSS.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Puis-je annuler à tout moment ?</summary>
+      <div class="faq-answer">
+        Oui, l'annulation est possible à tout moment depuis votre dashboard. Le bot reste actif jusqu'à la fin de la période payée. Aucuns frais d'annulation.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Que se passe-t-il après l'annulation ?</summary>
+      <div class="faq-answer">
+        Après annulation, le bot cesse de répondre sur votre serveur à la fin de la période payée. Vos données (scores quiz, configuration) sont conservées pendant 30 jours. Vous pouvez vous réabonner à tout moment.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Y a-t-il un remboursement ?</summary>
+      <div class="faq-answer">
+        Contactez-nous sur Discord dans les 7 jours suivant votre paiement si vous souhaitez un remboursement. Nous traiterons votre demande au cas par cas.
+      </div>
+    </details>
+  </div>
+
+  <!-- TECHNICAL -->
+  <div class="faq-category" id="faq-tech">
+    <div class="faq-category-title">Technique</div>
+
+    <details class="faq-item reveal">
+      <summary>Comment ajouter le bot à mon serveur ?</summary>
+      <div class="faq-answer">
+        1. Connectez-vous avec Discord sur le panel.<br>
+        2. Sélectionnez un bot et activez l'essai ou abonnez-vous.<br>
+        3. Cliquez sur "Inviter sur le serveur" depuis le dashboard.<br>
+        4. Autorisez le bot sur votre serveur Discord. Les commandes sont immédiatement disponibles.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Quelles permissions le bot nécessite-t-il ?</summary>
+      <div class="faq-answer">
+        Le bot a besoin de : Envoyer des messages, Intégrer des liens (embeds), Lire les messages, Lire l'historique des messages et Utiliser les commandes slash. Ces permissions sont automatiquement demandées lors de l'invitation.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Comment fonctionne le programmateur ?</summary>
+      <div class="faq-answer">
+        Le programmateur permet de planifier l'envoi automatique de contenus (news, météo, memes) à des horaires précis et dans le salon Discord de votre choix. Configurable depuis le dashboard.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Le bot utilise quelle IA ?</summary>
+      <div class="faq-answer">
+        Les bots utilisent l'API OpenAI pour générer des réponses contextuelles et dans le style du personnage. Chaque bot a un prompt système unique qui définit sa personnalité.
+      </div>
+    </details>
+
+    <details class="faq-item reveal">
+      <summary>Le bot est-il disponible 24/7 ?</summary>
+      <div class="faq-answer">
+        Oui, les bots sont hébergés sur des serveurs dédiés et fonctionnent 24h/24, 7j/7. En cas de maintenance planifiée, vous serez prévenus sur notre Discord.
+      </div>
+    </details>
+  </div>
+
+  <!-- Contact CTA -->
+  <div class="faq-contact reveal">
+    <h2 class="gradient-text">Encore des questions ?</h2>
+    <p>Rejoignez notre communauté Discord pour obtenir de l'aide en direct.</p>
+    <a href="https://discord.gg/4ubot" target="_blank" class="btn-glow">
+      <i class="ph ph-discord-logo"></i> Rejoindre le Discord
+    </a>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  var tabs = document.querySelectorAll('.faq-tab');
+  var categories = document.querySelectorAll('.faq-category');
+
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var target = this.getAttribute('data-tab');
+
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      categories.forEach(function(c) { c.classList.remove('active'); });
+
+      this.classList.add('active');
+      var el = document.getElementById('faq-' + target);
+      if (el) el.classList.add('active');
+    });
+  });
+})();
+</script>
+{% endblock %}

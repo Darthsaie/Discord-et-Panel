@@ -10,7 +10,6 @@ services:
     restart: always
     volumes:
       - ./shared:/app/shared
-      - ./.env:/app/.env
     env_file: .env
     environment:
       BOT_KEY: homer
@@ -32,7 +31,6 @@ services:
       sh -c "pip install twitchio==2.10.0 && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('homer', os.getenv('PROMPT_HOMER')).run()\""
     volumes:
       - ./shared:/app/shared
-      - ./.env:/app/.env
     env_file: .env
     environment:
       - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
@@ -54,7 +52,6 @@ services:
     restart: always
     volumes:
       - ./shared:/app/shared
-      - ./.env:/app/.env
     env_file: .env
     environment:
       BOT_KEY: cartman
@@ -72,7 +69,6 @@ services:
       sh -c "pip install twitchio==2.10.0 && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('cartman', os.getenv('PROMPT_CARTMAN')).run()\""
     volumes:
       - ./shared:/app/shared
-      - ./.env:/app/.env
     env_file: .env
     environment:
       - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
@@ -94,7 +90,6 @@ services:
     restart: always
     volumes:
       - ./shared:/app/shared
-      - ./.env:/app/.env
     env_file: .env
     environment:
       BOT_KEY: deadpool
@@ -111,7 +106,6 @@ services:
     command: ["python", "main_twitch.py"]
     volumes:
       - ./shared:/app/shared
-      - ./.env:/app/.env
     env_file: .env
     environment:
       - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
@@ -135,7 +129,6 @@ services:
     restart: always
     volumes:
       - ./shared:/app/shared
-      - ./.env:/app/.env
     env_file: .env
     environment:
       BOT_KEY: yoda
@@ -153,7 +146,6 @@ services:
       sh -c "pip install twitchio==2.10.0 && python -c \"from shared.twitch_core import TwitchBot; import os; TwitchBot('yoda', os.getenv('PROMPT_YODA')).run()\""
     volumes:
       - ./shared:/app/shared
-      - ./.env:/app/.env
     env_file: .env
     environment:
       - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
@@ -175,9 +167,14 @@ services:
     restart: always
     volumes:
       - ./panel_pro:/app
-      - ./.env:/app/.env
       - ./shared:/app/shared
     ports:
       - "5001:5000"
     env_file: .env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     logging: *default-logging

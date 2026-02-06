@@ -1,23 +1,203 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion {{ service }}</title>
+    <title>Connexion {{ service }} — 4U BOT</title>
+    <link rel="icon" href="/static/4_U_BOT.jpg" type="image/jpeg">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #2f3136; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
-        .loader { border: 4px solid #202225; border-top: 4px solid #5865F2; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .btn { background-color: #5865F2; color: white; text-decoration: none; padding: 12px 24px; border-radius: 5px; font-weight: bold; margin-top: 20px; display: inline-block; border: none; cursor: pointer;}
-        .sub-text { opacity: 0.7; font-size: 0.9rem; margin-top: 10px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #0a0e1a;
+            color: #f8fafc;
+            font-family: 'Outfit', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Background orbs */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -30%; left: -20%;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: orbFloat 20s ease-in-out infinite;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -30%; right: -15%;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: orbFloat 25s ease-in-out infinite reverse;
+        }
+
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0,0) scale(1); }
+            50% { transform: translate(-40px, 30px) scale(1.08); }
+        }
+
+        .auth-card {
+            position: relative;
+            z-index: 1;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            padding: 48px 40px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            border-radius: 24px 24px 0 0;
+        }
+
+        .service-discord .auth-card::before {
+            background: linear-gradient(90deg, #5865F2, #818cf8);
+        }
+
+        .service-twitch .auth-card::before {
+            background: linear-gradient(90deg, #9146FF, #bf8fff);
+        }
+
+        .auth-logo {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            margin: 0 auto 24px;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            margin: 0 auto 24px;
+            position: relative;
+        }
+
+        .spinner::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border: 3px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .service-discord .spinner::after { border-top-color: #5865F2; }
+        .service-twitch .spinner::after { border-top-color: #9146FF; }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .auth-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .auth-sub {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 28px;
+        }
+
+        .auth-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #fff;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .service-discord .auth-btn {
+            background: linear-gradient(135deg, #5865F2, #4752C4);
+            box-shadow: 0 4px 15px rgba(88,101,242,0.3);
+        }
+
+        .service-twitch .auth-btn {
+            background: linear-gradient(135deg, #9146FF, #772CE8);
+            box-shadow: 0 4px 15px rgba(145,70,255,0.3);
+        }
+
+        .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99,102,241,0.4);
+        }
+
+        .auth-hint {
+            color: #64748b;
+            font-size: 0.8rem;
+            margin-top: 16px;
+        }
+
+        .auth-brand {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 1;
+        }
+
+        .auth-brand img {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+        }
     </style>
 </head>
-<body>
-    <div class="loader"></div>
-    <h3>Connexion à {{ service }}...</h3>
-    
-    <a href="{{ auth_url }}" class="btn">Continuer via le Navigateur</a>
-    <p class="sub-text">Redirection automatique...</p>
+<body class="service-{{ service|lower }}">
+
+    <div class="auth-card">
+        <img src="/static/4_U_BOT.jpg" class="auth-logo" alt="4U BOT">
+        <div class="spinner"></div>
+        <h2 class="auth-title">Connexion a {{ service }}</h2>
+        <p class="auth-sub">Redirection automatique en cours...</p>
+        <a href="{{ auth_url }}" class="auth-btn">Continuer via le Navigateur</a>
+        <p class="auth-hint">Si la redirection ne fonctionne pas, cliquez sur le bouton ci-dessus.</p>
+    </div>
+
+    <div class="auth-brand">
+        <img src="/static/4_U_BOT.jpg" alt="4U BOT">
+        <span>4U BOT</span>
+    </div>
 
     <script>
         var webUrl = "{{ auth_url | safe }}";
@@ -25,25 +205,21 @@
         var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
         if (isMobile && service === 'Discord') {
-            // Logique spécifique pour l'app Discord
             var appUrl = webUrl.replace("https://", "discord://");
-            
-            // Astuce iframe pour éviter l'erreur si l'app n'est pas installée
+
             var iframe = document.createElement("iframe");
             iframe.style.border = "none";
             iframe.style.width = "1px";
             iframe.style.height = "1px";
             iframe.src = appUrl;
             document.body.appendChild(iframe);
-            
-            // Fallback vers le web après 2.5 secondes
+
             setTimeout(function() {
                 if (!document.hidden) {
                     window.location.href = webUrl;
                 }
             }, 2500);
         } else {
-            // Pour Twitch ou sur PC, redirection directe
             window.location.href = webUrl;
         }
     </script>

@@ -1,0 +1,17 @@
+.env
+.env.*
+*.env
+.git
+.gitignore
+__pycache__
+*.pyc
+*.db
+*.db-shm
+*.db-wal
+.windsurf
+.vscode
+.idea
+README.md
+README_PANEL_PRO.md
+docker-compose.yml
+docker-compose.override.yml

@@ -2,319 +2,885 @@
 
 {% block content %}
 <style>
-  /* --- STYLE DES TÂCHES EN CARTE (MOBILE) --- */
-  @media (max-width: 768px) {
-    /* On cache le tableau classique */
-    .tasks-table { display: none; }
-    
-    /* On affiche la vue "Cartes" */
-    .mobile-tasks-list { display: flex; flex-direction: column; gap: 15px; }
-    
-    .task-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 16px;
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    
-    .task-card-header {
-      display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 5px;
-    }
-    .task-bot-name { font-weight: 800; font-size: 1.1rem; text-transform: capitalize; color: #fff; }
-    
-    .task-row { display: flex; justify-content: space-between; font-size: 0.9rem; }
-    .task-label { color: var(--secondary); font-weight: 600; }
-    .task-value { color: #fff; text-align: right; }
+  /* ============================================
+     SCHEDULER — Professional Redesign
+     ============================================ */
 
-    .btn-delete-mobile {
-      width: 100%; margin-top: 10px; padding: 12px;
-      background: rgba(239,68,68,0.2); color: #f87171;
-      border: 1px solid rgba(239,68,68,0.3); border-radius: 10px;
-      font-weight: 700; cursor: pointer;
-    }
-    
-    .platform-section {
-      display: block;
-    }
-    
-    .platform-section.hidden {
-      display: none;
-    }
-    
-    /* Style pour les onglets */
-    .tab-btn {
-      padding: 12px 24px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px 8px 0 0;
-      color: var(--text-secondary);
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .tab-btn:hover {
-      color: var(--text-primary);
-      background: rgba(255, 255, 255, 0.05);
-    }
-    
-    .tab-btn.active {
-      color: var(--text-primary);
-      background: var(--accent);
-    }
+  .sched {
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
-  /* --- STYLE DES TÂCHES EN TABLEAU (PC) --- */
-  @media (min-width: 769px) {
-    .mobile-tasks-list { display: none; }
-    .tasks-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+  /* --- Header --- */
+  .sched-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .sched-hero h1 {
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-weight: 900;
+    margin: 0 0 6px;
+    background: linear-gradient(135deg, #fff 0%, #c7d2fe 50%, var(--c-accent-light) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+  }
+
+  .sched-hero-sub {
+    color: var(--c-text-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+
+  /* --- Platform Tabs --- */
+  .platform-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 28px;
+    border-bottom: 2px solid var(--c-border);
+    padding-bottom: 0;
+  }
+
+  .platform-tab {
+    padding: 12px 24px;
+    border-radius: var(--r-md) var(--r-md) 0 0;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border: 1px solid var(--c-border);
+    border-bottom: none;
+    background: rgba(255,255,255,0.03);
+    color: var(--c-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s var(--ease-out);
+    position: relative;
+    top: 2px;
+  }
+
+  .platform-tab:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .platform-tab.active {
+    background: var(--c-surface);
+    color: #fff;
+    border-color: var(--c-border-light);
+  }
+
+  .platform-tab.active.discord-tab {
+    color: #7c8af2;
+    border-bottom: 2px solid #5865F2;
+  }
+
+  .platform-tab.active.twitch-tab {
+    color: #b68aff;
+    border-bottom: 2px solid #9146FF;
+  }
+
+  /* --- Platform sections --- */
+  .platform-section { display: none; }
+  .platform-section.active { display: block; }
+
+  /* --- Create Task Form --- */
+  .create-card {
+    background: var(--c-surface);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-2xl);
+    padding: 28px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .create-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #5865F2, #818cf8);
+  }
+
+  .create-card h3 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin: 0 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+  }
+
+  .create-card h3 i {
+    color: #5865F2;
+    font-size: 1.4rem;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    align-items: end;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-field label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--c-text-muted);
+  }
+
+  .form-field select,
+  .form-field input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--c-border);
+    background: rgba(0,0,0,0.3);
+    color: var(--c-text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .form-field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  .form-field select option {
+    background: #0f172a;
+    color: #f8fafc;
+  }
+
+  .form-field select:focus,
+  .form-field input:focus {
+    outline: none;
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px var(--c-accent-glow);
+  }
+
+  .form-field input::placeholder {
+    color: var(--c-text-dim);
+  }
+
+  .form-loading {
+    font-size: 0.75rem;
+    color: var(--c-accent-light);
+    margin-top: 4px;
+    display: none;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .form-loading i {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .btn-create {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: var(--r-md);
+    font-weight: 700;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    transition: all 0.3s var(--ease-out);
+    white-space: nowrap;
+    height: 46px;
+  }
+
+  .btn-create-discord {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(16,185,129,0.3);
+  }
+
+  .btn-create-discord:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(16,185,129,0.4);
+  }
+
+  /* --- Tasks Section --- */
+  .tasks-section h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--c-text);
+    margin: 0 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tasks-section h3 .count-pill {
+    font-size: 0.7rem;
+    padding: 2px 10px;
+    border-radius: var(--r-full);
+    background: rgba(99,102,241,0.15);
+    color: var(--c-accent-light);
+    font-weight: 800;
+  }
+
+  /* Desktop Table */
+  .tasks-card {
+    background: var(--c-surface);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+  }
+
+  .tasks-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 700px;
+  }
+
+  .tasks-table thead {
+    background: rgba(0,0,0,0.2);
+  }
+
+  .tasks-table th {
+    text-align: left;
+    padding: 16px 20px;
+    color: var(--c-text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 800;
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  .tasks-table td {
+    padding: 16px 20px;
+    vertical-align: middle;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .tasks-table tbody tr {
+    transition: background 0.2s;
+  }
+
+  .tasks-table tbody tr:hover {
+    background: rgba(255,255,255,0.03);
+  }
+
+  .tasks-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* Bot name in table */
+  .task-bot-name {
+    font-weight: 800;
+    text-transform: capitalize;
+    font-size: 0.95rem;
+  }
+
+  .task-bot-name[data-bot="homer"]    { color: var(--c-homer); }
+  .task-bot-name[data-bot="cartman"]  { color: var(--c-cartman); }
+  .task-bot-name[data-bot="deadpool"] { color: var(--c-deadpool); }
+  .task-bot-name[data-bot="yoda"]     { color: var(--c-yoda); }
+
+  /* Task type chip */
+  .task-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: var(--r-full);
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .task-chip-news {
+    background: rgba(88,101,242,0.15);
+    color: #818cf8;
+    border: 1px solid rgba(88,101,242,0.25);
+  }
+
+  .task-chip-meteo {
+    background: rgba(34,211,153,0.12);
+    color: #34d399;
+    border: 1px solid rgba(34,211,153,0.25);
+  }
+
+  .task-chip-meme {
+    background: rgba(251,191,36,0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(251,191,36,0.25);
+  }
+
+  .task-chip-default {
+    background: rgba(255,255,255,0.06);
+    color: var(--c-text-muted);
+    border: 1px solid var(--c-border);
+  }
+
+  /* Schedule badge */
+  .sched-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+  }
+
+  .sched-badge-day {
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .sched-badge-time {
+    color: var(--c-accent-light);
+    font-weight: 600;
+  }
+
+  /* Channel */
+  .channel-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--c-text-dim);
+    background: rgba(255,255,255,0.04);
+    padding: 4px 10px;
+    border-radius: var(--r-sm);
+  }
+
+  /* Delete button */
+  .btn-delete-task {
+    padding: 8px 16px;
+    border-radius: var(--r-md);
+    border: 1px solid rgba(239,68,68,0.25);
+    background: rgba(239,68,68,0.1);
+    color: #f87171;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Outfit', sans-serif;
+  }
+
+  .btn-delete-task:hover {
+    background: #ef4444;
+    color: #fff;
+    border-color: #ef4444;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+  }
+
+  /* Empty state */
+  .tasks-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--c-text-muted);
+  }
+
+  .tasks-empty i {
+    font-size: 2.5rem;
+    opacity: 0.3;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .tasks-empty p {
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  /* --- Twitch Config Card --- */
+  .twitch-config-card {
+    background: var(--c-surface);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(145,70,255,0.2);
+    border-radius: var(--r-2xl);
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .twitch-config-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #9146FF, #bf8fff);
+  }
+
+  .twitch-config-card h3 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+  }
+
+  .twitch-config-card h3 i {
+    color: #9146FF;
+    font-size: 1.4rem;
+  }
+
+  .twitch-config-card .config-desc {
+    color: var(--c-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+
+  .twitch-config-row {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+    flex-wrap: wrap;
+  }
+
+  .twitch-config-row .form-field {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  .btn-twitch-save {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: var(--r-md);
+    font-weight: 700;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    background: linear-gradient(135deg, #9146FF, #772CE8);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(145,70,255,0.3);
+    transition: all 0.3s var(--ease-out);
+    height: 46px;
+    white-space: nowrap;
+  }
+
+  .btn-twitch-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(145,70,255,0.4);
+  }
+
+  /* --- Mobile Cards --- */
+  .mobile-tasks { display: none; }
+
+  .task-mobile-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-xl);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: all 0.2s;
+  }
+
+  .task-mobile-card:hover {
+    border-color: var(--c-border-light);
+  }
+
+  .task-mobile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  .task-mobile-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+  }
+
+  .task-mobile-label {
+    color: var(--c-text-muted);
+    font-weight: 600;
+  }
+
+  .task-mobile-value {
+    color: #fff;
+    font-weight: 500;
+    text-align: right;
+  }
+
+  .btn-delete-mobile {
+    width: 100%;
+    padding: 12px;
+    border-radius: var(--r-md);
+    border: 1px solid rgba(239,68,68,0.25);
+    background: rgba(239,68,68,0.1);
+    color: #f87171;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Outfit', sans-serif;
+    margin-top: 4px;
+  }
+
+  .btn-delete-mobile:hover {
+    background: #ef4444;
+    color: #fff;
+  }
+
+  /* --- Table scroll wrapper --- */
+  .table-scroll {
+    overflow-x: auto;
+  }
+
+  .table-scroll::-webkit-scrollbar { height: 6px; }
+  .table-scroll::-webkit-scrollbar-track { background: transparent; }
+  .table-scroll::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 3px; }
+
+  /* --- Responsive --- */
+  @media (max-width: 768px) {
+    .sched-hero { flex-direction: column; gap: 16px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .table-scroll { display: none; }
+    .mobile-tasks { display: flex; flex-direction: column; gap: 14px; }
+    .twitch-config-row { flex-direction: column; }
   }
 </style>
 
-<section class="section">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
-    <h1 style="font-size:2rem; font-weight:800; margin:0;">Programmateur de Tâches</h1>
-    <a href="{{ url_for('dashboard') }}" class="btn sync-btn" style="width:auto; margin:0;">← Retour</a>
+<div class="sched">
+
+  <!-- HEADER -->
+  <div class="sched-hero">
+    <div>
+      <h1>Programmateur</h1>
+      <p class="sched-hero-sub">Planifiez l'envoi automatique de contenu sur vos serveurs</p>
+    </div>
+    <a href="{{ url_for('dashboard') }}" class="btn-ghost">
+      <i class="ph ph-arrow-left"></i> Retour
+    </a>
   </div>
 
-  <div style="display:flex; gap:10px; margin-bottom:30px; border-bottom:2px solid rgba(255,255,255,0.1); padding-bottom:15px;">
-    <button class="tab-btn active" onclick="showTab('discord')" id="discordTab" style="background:var(--accent); color:white;">
-      🔵 Tâches Discord
+  <!-- TABS -->
+  <div class="platform-tabs">
+    <button class="platform-tab discord-tab active" id="discordTab" onclick="showTab('discord')">
+      <i class="ph ph-discord-logo"></i> Discord
     </button>
-    <button class="tab-btn" onclick="showTab('twitch')" id="twitchTab" style="background:rgba(145,70,255,0.2); color:white;">
-      🟣 Tâches Twitch
+    <button class="platform-tab twitch-tab" id="twitchTab" onclick="showTab('twitch')">
+      <i class="ph ph-twitch-logo"></i> Twitch
     </button>
   </div>
 
-  <div id="discordSection" class="platform-section">
-    <div class="card" style="margin-bottom:50px; border:1px solid rgba(88,101,242,0.3); padding:30px; background: rgba(88,101,242,0.1);">
-      <h3 style="margin-top:0; color:#fff; margin-bottom:25px; font-size:1.4rem;">🔵 Tâches Discord</h3>
-      
-      <form method="post" action="{{ url_for('scheduler_create') }}" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:25px; align-items:end;">
-        
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">SUR QUEL SERVEUR ?</label>
-          <select name="guild_discord_id" id="guildSelect" class="input-pill" required>
-            <option value="" disabled selected>Choisir un serveur</option>
-            {% if guilds %}
-              {% for g in guilds %}
-                {% if g.platform != 'twitch' %}
-                  <option value="{{ g.discord_id }}">{{ g.name }}</option>
-                {% endif %}
-              {% endfor %}
-            {% endif %}
-          </select>
-        </div>
+  <!-- ================================
+       DISCORD SECTION
+       ================================ -->
+  <div id="discordSection" class="platform-section active">
 
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUEL BOT ?</label>
-          <select name="bot_key" class="input-pill" required>
-            <option value="" disabled selected>Choisir un bot</option>
-            <option value="deadpool">Deadpool</option>
-            <option value="yoda">Yoda</option>
-            <option value="cartman">Cartman</option>
-            <option value="homer">Homer</option>
-          </select>
-        </div>
+    <!-- Create Form -->
+    <div class="create-card">
+      <h3><i class="ph ph-plus-circle"></i> Nouvelle tache Discord</h3>
 
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">QUELLE ACTION ?</label>
-          <select name="task_type" id="taskTypeSelect" class="input-pill" required>
-            <option value="" disabled selected>Choisir une action</option>
-            <option value="news">News (Flux RSS)</option>
-            <option value="meteo">Météo</option>
-            <option value="meme">Meme Aléatoire</option>
-          </select>
-        </div>
+      <form method="post" action="{{ url_for('scheduler_create') }}">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Serveur</label>
+            <select name="guild_discord_id" id="guildSelect" required>
+              <option value="" disabled selected>Choisir un serveur</option>
+              {% if guilds %}
+                {% for g in guilds %}
+                  {% if g.platform != 'twitch' %}
+                    <option value="{{ g.discord_id }}">{{ g.name }}</option>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
 
-        <div style="display:flex; flex-direction:column; gap:10px;" id="paramBox">
-          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;" id="paramLabel">DÉTAIL</label>
-          <input type="text" name="task_param" id="paramInputText" class="input-pill" placeholder="Ex: Paris" style="display:none;">
-          <select name="task_param" id="paramInputSelect" class="input-pill" style="display:none;">
-            <option value="gaming">Gaming</option>
-            <option value="crypto">Crypto</option>
-            <option value="tech">Tech / Geek</option>
-            <option value="world">Actualité Monde</option>
-          </select>
-        </div>
+          <div class="form-field">
+            <label>Bot</label>
+            <select name="bot_key" required>
+              <option value="" disabled selected>Choisir un bot</option>
+              <option value="deadpool">Deadpool</option>
+              <option value="yoda">Yoda</option>
+              <option value="cartman">Cartman</option>
+              <option value="homer">Homer</option>
+            </select>
+          </div>
 
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">JOUR</label>
-          <select name="day_of_week" class="input-pill" required>
-            <option value="" disabled selected>Choisir le jour</option>
-            <option value="monday">Lundi</option>
-            <option value="tuesday">Mardi</option>
-            <option value="wednesday">Mercredi</option>
-            <option value="thursday">Jeudi</option>
-            <option value="friday">Vendredi</option>
-            <option value="saturday">Samedi</option>
-            <option value="sunday">Dimanche</option>
-          </select>
-        </div>
+          <div class="form-field">
+            <label>Action</label>
+            <select name="task_type" id="taskTypeSelect" required>
+              <option value="" disabled selected>Choisir une action</option>
+              <option value="news">News (Flux RSS)</option>
+              <option value="meteo">Meteo</option>
+              <option value="meme">Meme Aleatoire</option>
+            </select>
+          </div>
 
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">HEURE (FRANCE)</label>
-          <input type="time" name="time_of_day" value="00:00" class="input-pill" required>
-        </div>
+          <div class="form-field" id="paramBox" style="display:none;">
+            <label id="paramLabel">Detail</label>
+            <input type="text" name="task_param" id="paramInputText" placeholder="Ex: Paris" style="display:none;">
+            <select name="task_param" id="paramInputSelect" style="display:none;">
+              <option value="gaming">Gaming</option>
+              <option value="crypto">Crypto</option>
+              <option value="tech">Tech / Geek</option>
+              <option value="world">Actualite Monde</option>
+            </select>
+          </div>
 
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <label style="color:var(--secondary); font-size:0.85rem; font-weight:700; margin-left:5px;">SALON DISCORD</label>
-          <select name="channel_id" id="channelSelect" class="input-pill" required>
-            <option value="" disabled selected>Choisir serveur d'abord</option>
-          </select>
-          <div id="channelLoading" style="display:none; font-size:0.8rem; color:var(--accent); margin-left:15px;">Chargement des salons...</div>
-        </div>
+          <div class="form-field">
+            <label>Jour</label>
+            <select name="day_of_week" required>
+              <option value="" disabled selected>Choisir le jour</option>
+              <option value="monday">Lundi</option>
+              <option value="tuesday">Mardi</option>
+              <option value="wednesday">Mercredi</option>
+              <option value="thursday">Jeudi</option>
+              <option value="friday">Vendredi</option>
+              <option value="saturday">Samedi</option>
+              <option value="sunday">Dimanche</option>
+            </select>
+          </div>
 
-        <button type="submit" class="btn-scheduler-hero" 
-                  style="justify-content:center; height:50px; margin-top:10px; border-radius:50px; 
-                     background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
-                     box-shadow: 0 4px 20px rgba(16, 185, 129, 0.5); border:1px solid rgba(255,255,255,0.2);
-                     font-size:1rem; letter-spacing:1px;">
-          PLANIFIER LA TÂCHE DISCORD
-        </button>
+          <div class="form-field">
+            <label>Heure (France)</label>
+            <input type="time" name="time_of_day" value="00:00" required>
+          </div>
+
+          <div class="form-field">
+            <label>Salon Discord</label>
+            <select name="channel_id" id="channelSelect" required>
+              <option value="" disabled selected>Choisir serveur d'abord</option>
+            </select>
+            <div class="form-loading" id="channelLoading">
+              <i class="ph ph-spinner"></i> Chargement des salons...
+            </div>
+          </div>
+
+          <div class="form-field">
+            <button type="submit" class="btn-create btn-create-discord">
+              <i class="ph ph-rocket-launch"></i> Planifier
+            </button>
+          </div>
+        </div>
       </form>
     </div>
 
-    <h3 style="margin-left:10px; color:#fff;">Tâches Discord actives</h3>
-  
-  <div class="card" style="padding:0; border-radius:20px; overflow:hidden; display:block;" class="desktop-view">
-    <table class="tasks-table">
-      <thead style="background:rgba(255,255,255,0.03); text-align:left;">
-        <tr>
-          <th style="padding:20px; color:var(--secondary);">Bot</th>
-          <th style="padding:20px; color:var(--secondary);">Action</th>
-          <th style="padding:20px; color:var(--secondary);">Détail</th>
-          <th style="padding:20px; color:var(--secondary);">Serveur</th>
-          <th style="padding:20px; color:var(--secondary);">Quand ?</th>
-          <th style="padding:20px; color:var(--secondary);">Salon</th>
-          <th style="padding:20px; text-align:right; color:var(--secondary);">Action</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% set discord_tasks = tasks | selectattr('task_type', 'ne', 'auto_messages') | list %}
-      {% for t in discord_tasks %}
-        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
-          <td style="padding:20px;"><span style="font-weight:bold; text-transform:capitalize; color:#fff;">{{ t.bot_key }}</span></td>
-          <td style="padding:20px;">
-            {% if t.task_type == 'news' %}<span class="chip" style="background:rgba(88,101,242,0.2); color:#5865F2; padding:5px 10px; border-radius:20px; font-size:0.85rem; font-weight:700;">📰 News</span>
-            {% elif t.task_type == 'meteo' %}<span class="chip" style="background:rgba(52,211,153,0.2); color:#34d399; padding:5px 10px; border-radius:20px; font-size:0.85rem; font-weight:700;">☁️ Météo</span>
-            {% elif t.task_type == 'meme' %}<span class="chip" style="background:rgba(255,255,255,0.1); padding:5px 10px; border-radius:20px; font-size:0.85rem; font-weight:700;">😂 Meme</span>
-            {% else %}<span class="chip" style="background:rgba(255,255,255,0.1); padding:5px 10px; border-radius:20px; font-size:0.85rem;">{{ t.task_type }}</span>{% endif %}
-          </td>
-          <td style="padding:20px; color:#cbd5e1;">{{ t.task_param|capitalize if t.task_param else '-' }}</td>
-          <td style="padding:20px; font-weight:600;">{% if t.guild %}{{ t.guild.name }}{% else %}<span style="color:#ef4444;">Inconnu</span>{% endif %}</td>
-          <td style="padding:20px;">
-            <span style="color:#fff;">{{ t.day_of_week|capitalize }}</span> 
-            <span style="color:var(--secondary);">à {{ t.time_of_day }}</span>
-          </td>
-          <td style="padding:20px; font-family:monospace; color:var(--secondary);">{{ t.channel_id }}</td>
-          <td style="padding:20px; text-align:right;">
-            <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}" style="display:inline;">
-              <button style="background:rgba(239,68,68,0.2); color:#f87171; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; transition:0.2s;" onmouseover="this.style.background='#ef4444';this.style.color='white'" onmouseout="this.style.background='rgba(239,68,68,0.2)';this.style.color='#f87171'">Supprimer</button>
-            </form>
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="7" style="padding:50px; text-align:center; color:var(--secondary); font-style:italic;">Aucune tâche Discord planifiée.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    
-    <div class="mobile-tasks-list">
-      {% for t in discord_tasks %}
-        <div class="task-card">
-          <div class="task-card-header">
-            <span class="task-bot-name">{{ t.bot_key }}</span>
-            {% if t.task_type == 'news' %}<span style="color:#5865F2; font-weight:bold;">📰 News</span>
-            {% elif t.task_type == 'meteo' %}<span style="color:#34d399; font-weight:bold;">☁️ Météo</span>
-            {% elif t.task_type == 'meme' %}<span style="color:white; font-weight:bold;">😂 Meme</span>
-            {% else %}<span style="color:white;">{{ t.task_type }}</span>{% endif %}
-          </div>
-          
-          <div class="task-row">
-            <span class="task-label">Détail</span>
-            <span class="task-value">{{ t.task_param|capitalize if t.task_param else '-' }}</span>
-          </div>
-          <div class="task-row">
-            <span class="task-label">Serveur</span>
-            <span class="task-value">{% if t.guild %}{{ t.guild.name }}{% else %}Inconnu{% endif %}</span>
-          </div>
-          <div class="task-row">
-            <span class="task-label">Quand ?</span>
-            <span class="task-value" style="color:var(--accent);">{{ t.day_of_week|capitalize }} à {{ t.time_of_day }}</span>
-          </div>
-          
-          <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}">
-            <button class="btn-delete-mobile">SUPPRIMER</button>
-          </form>
+    <!-- Active Tasks -->
+    {% set discord_tasks = tasks | selectattr('task_type', 'ne', 'auto_messages') | list %}
+    <div class="tasks-section">
+      <h3>
+        <i class="ph ph-list-checks"></i> Taches actives
+        <span class="count-pill">{{ discord_tasks|length }}</span>
+      </h3>
+
+      <div class="tasks-card">
+        <!-- Desktop Table -->
+        <div class="table-scroll">
+          <table class="tasks-table">
+            <thead>
+              <tr>
+                <th>Bot</th>
+                <th>Action</th>
+                <th>Detail</th>
+                <th>Serveur</th>
+                <th>Programmation</th>
+                <th>Salon</th>
+                <th style="text-align:right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for t in discord_tasks %}
+              <tr>
+                <td>
+                  <span class="task-bot-name" data-bot="{{ t.bot_key }}">{{ t.bot_key }}</span>
+                </td>
+                <td>
+                  {% if t.task_type == 'news' %}
+                    <span class="task-chip task-chip-news"><i class="ph ph-newspaper"></i> News</span>
+                  {% elif t.task_type == 'meteo' %}
+                    <span class="task-chip task-chip-meteo"><i class="ph ph-cloud-sun"></i> Meteo</span>
+                  {% elif t.task_type == 'meme' %}
+                    <span class="task-chip task-chip-meme"><i class="ph ph-smiley-wink"></i> Meme</span>
+                  {% else %}
+                    <span class="task-chip task-chip-default">{{ t.task_type }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span style="color:var(--c-text-muted);">{{ t.task_param|capitalize if t.task_param else '-' }}</span>
+                </td>
+                <td>
+                  {% if t.guild %}
+                    <span style="font-weight:600; color:#fff;">{{ t.guild.name }}</span>
+                  {% else %}
+                    <span style="color:#ef4444;">Inconnu</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="sched-badge">
+                    <span class="sched-badge-day">{{ t.day_of_week|capitalize }}</span>
+                    <span style="color:var(--c-text-dim);">a</span>
+                    <span class="sched-badge-time">{{ t.time_of_day }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="channel-tag">{{ t.channel_id }}</span>
+                </td>
+                <td style="text-align:right;">
+                  <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}" style="display:inline;">
+                    <button type="submit" class="btn-delete-task">
+                      <i class="ph ph-trash"></i> Supprimer
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="7">
+                  <div class="tasks-empty">
+                    <i class="ph ph-calendar-blank"></i>
+                    <p>Aucune tache Discord planifiee</p>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
         </div>
-      {% else %}
-        <div style="text-align:center; padding:30px; color:var(--secondary);">Aucune tâche Discord.</div>
-      {% endfor %}
+
+        <!-- Mobile Cards -->
+        <div class="mobile-tasks">
+          {% for t in discord_tasks %}
+            <div class="task-mobile-card">
+              <div class="task-mobile-header">
+                <span class="task-bot-name" data-bot="{{ t.bot_key }}">{{ t.bot_key }}</span>
+                {% if t.task_type == 'news' %}
+                  <span class="task-chip task-chip-news"><i class="ph ph-newspaper"></i> News</span>
+                {% elif t.task_type == 'meteo' %}
+                  <span class="task-chip task-chip-meteo"><i class="ph ph-cloud-sun"></i> Meteo</span>
+                {% elif t.task_type == 'meme' %}
+                  <span class="task-chip task-chip-meme"><i class="ph ph-smiley-wink"></i> Meme</span>
+                {% else %}
+                  <span class="task-chip task-chip-default">{{ t.task_type }}</span>
+                {% endif %}
+              </div>
+
+              <div class="task-mobile-row">
+                <span class="task-mobile-label">Detail</span>
+                <span class="task-mobile-value">{{ t.task_param|capitalize if t.task_param else '-' }}</span>
+              </div>
+              <div class="task-mobile-row">
+                <span class="task-mobile-label">Serveur</span>
+                <span class="task-mobile-value">{% if t.guild %}{{ t.guild.name }}{% else %}Inconnu{% endif %}</span>
+              </div>
+              <div class="task-mobile-row">
+                <span class="task-mobile-label">Quand</span>
+                <span class="task-mobile-value" style="color:var(--c-accent-light);">{{ t.day_of_week|capitalize }} a {{ t.time_of_day }}</span>
+              </div>
+
+              <form method="post" action="{{ url_for('scheduler_delete', task_id=t.id) }}">
+                <button type="submit" class="btn-delete-mobile">
+                  <i class="ph ph-trash"></i> Supprimer
+                </button>
+              </form>
+            </div>
+          {% else %}
+            <div class="tasks-empty">
+              <i class="ph ph-calendar-blank"></i>
+              <p>Aucune tache Discord planifiee</p>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
     </div>
   </div>
 
-  <div id="twitchSection" class="platform-section hidden">
-      
-      <div class="card" style="border:1px solid #a78bfa; background: rgba(139, 92, 246, 0.1); margin-bottom: 30px;">
-          <h3 style="color:#fff; display:flex; align-items:center; gap:10px;">
-              🤖 Deadpool : Annonceur Automatique
-          </h3>
-          <p style="color:var(--secondary); font-size:0.9rem;">
-              Configure Deadpool pour qu'il annonce le nombre de viewers automatiquement.
-          </p>
+  <!-- ================================
+       TWITCH SECTION
+       ================================ -->
+  <div id="twitchSection" class="platform-section">
+    <div class="twitch-config-card">
+      <h3><i class="ph ph-robot"></i> Deadpool : Annonceur Automatique</h3>
+      <p class="config-desc">Configure Deadpool pour qu'il annonce le nombre de viewers automatiquement sur ta chaine Twitch.</p>
 
-          <div style="display:flex; gap:20px; align-items:end; flex-wrap:wrap;">
-              <div style="flex:1; min-width:200px;">
-                  <label style="color:var(--secondary); font-weight:700;">STATUT</label>
-                  <select id="autoMsgEnabled" class="input-pill">
-                      <option value="true">✅ Activé</option>
-                      <option value="false">❌ Désactivé</option>
-                  </select>
-              </div>
+      <div class="twitch-config-row">
+        <div class="form-field">
+          <label>Statut</label>
+          <select id="autoMsgEnabled">
+            <option value="true">Active</option>
+            <option value="false">Desactive</option>
+          </select>
+        </div>
 
-              <div style="flex:1; min-width:200px;">
-                  <label style="color:var(--secondary); font-weight:700;">INTERVALLE (MINUTES)</label>
-                  <select id="autoMsgInterval" class="input-pill">
-                      <option value="15">Toutes les 15 minutes</option>
-                      <option value="30">Toutes les 30 minutes</option>
-                      <option value="60">Toutes les 1 heure</option>
-                      <option value="120">Toutes les 2 heures</option>
-                      <option value="240">Toutes les 4 heures</option>
-                  </select>
-              </div>
+        <div class="form-field">
+          <label>Intervalle</label>
+          <select id="autoMsgInterval">
+            <option value="15">Toutes les 15 minutes</option>
+            <option value="30">Toutes les 30 minutes</option>
+            <option value="60">Toutes les 1 heure</option>
+            <option value="120">Toutes les 2 heures</option>
+            <option value="240">Toutes les 4 heures</option>
+          </select>
+        </div>
 
-              <button onclick="saveTwitchConfig()" class="btn-scheduler-hero" style="padding:10px 20px; height:46px; background: linear-gradient(135deg, #9146FF 0%, #772CE8 100%);">
-                  💾 Enregistrer
-              </button>
-          </div>
+        <button onclick="saveTwitchConfig()" class="btn-twitch-save">
+          <i class="ph ph-floppy-disk"></i> Enregistrer
+        </button>
       </div>
+    </div>
   </div>
-</section>
+
+</div>
+
+<!-- ================================
+     TOAST NOTIFICATION
+     ================================ -->
+<div id="toast" style="position:fixed; bottom:24px; right:24px; padding:14px 24px; border-radius:var(--r-md); font-weight:600; font-size:0.9rem; z-index:9999; display:none; align-items:center; gap:8px; backdrop-filter:blur(12px); border:1px solid var(--c-border); box-shadow:0 12px 40px rgba(0,0,0,0.4); transform:translateY(20px); opacity:0; transition:all 0.3s var(--ease-out);"></div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    const typeSelect = document.getElementById("taskTypeSelect");
-    const paramBox = document.getElementById("paramBox");
-    const paramLabel = document.getElementById("paramLabel");
-    const paramInputText = document.getElementById("paramInputText");
-    const paramInputSelect = document.getElementById("paramInputSelect");
+    var typeSelect = document.getElementById("taskTypeSelect");
+    var paramBox = document.getElementById("paramBox");
+    var paramLabel = document.getElementById("paramLabel");
+    var paramInputText = document.getElementById("paramInputText");
+    var paramInputSelect = document.getElementById("paramInputSelect");
 
-    // Charger la config Twitch au démarrage
+    // Load Twitch config
     fetch('/api/bot/auto-messages/deadpool')
-        .then(r => r.json())
-        .then(data => {
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
             if(data && Object.keys(data).length > 0) {
                 document.getElementById('autoMsgEnabled').value = data.enabled ? 'true' : 'false';
                 document.getElementById('autoMsgInterval').value = data.interval;
             }
         })
-        .catch(err => console.log("Config Twitch non chargée", err));
+        .catch(function(err) { console.log("Config Twitch non chargee", err); });
 
     function updateFields() {
-        const val = typeSelect.value;
+        var val = typeSelect.value;
         paramBox.style.display = "none";
         paramInputText.style.display = "none";
         paramInputSelect.style.display = "none";
@@ -323,7 +889,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         if (val === "news") {
             paramBox.style.display = "flex";
-            paramLabel.innerText = "CATÉGORIE NEWS";
+            paramLabel.innerText = "CATEGORIE NEWS";
             paramInputSelect.style.display = "block";
             paramInputSelect.setAttribute("name", "task_param");
         } else if (val === "meteo") {
@@ -336,49 +902,47 @@ document.addEventListener("DOMContentLoaded", function() {
     typeSelect.addEventListener("change", updateFields);
     updateFields();
 
-    // Gestion des onglets
+    // Tab switching
     window.showTab = function(platform) {
-        const discordSection = document.getElementById("discordSection");
-        const twitchSection = document.getElementById("twitchSection");
-        const discordTab = document.getElementById("discordTab");
-        const twitchTab = document.getElementById("twitchTab");
+        var discordSection = document.getElementById("discordSection");
+        var twitchSection = document.getElementById("twitchSection");
+        var discordTab = document.getElementById("discordTab");
+        var twitchTab = document.getElementById("twitchTab");
+
+        discordSection.classList.remove('active');
+        twitchSection.classList.remove('active');
+        discordTab.classList.remove('active');
+        twitchTab.classList.remove('active');
 
         if (platform === 'discord') {
-            discordSection.classList.remove('hidden');
-            twitchSection.classList.add('hidden');
-            discordTab.style.background = 'var(--accent)';
-            discordTab.style.color = 'white';
-            twitchTab.style.background = 'rgba(145,70,255,0.2)';
-            twitchTab.style.color = 'white';
-        } else if (platform === 'twitch') {
-            discordSection.classList.add('hidden');
-            twitchSection.classList.remove('hidden');
-            discordTab.style.background = 'rgba(145,70,255,0.2)';
-            discordTab.style.color = 'white';
-            twitchTab.style.background = 'var(--accent)';
-            twitchTab.style.color = 'white';
+            discordSection.classList.add('active');
+            discordTab.classList.add('active');
+        } else {
+            twitchSection.classList.add('active');
+            twitchTab.classList.add('active');
         }
-    }
+    };
 
-    const guildSelect = document.getElementById("guildSelect");
-    const channelSelect = document.getElementById("channelSelect");
-    const channelLoading = document.getElementById("channelLoading");
+    // Channel loading
+    var guildSelect = document.getElementById("guildSelect");
+    var channelSelect = document.getElementById("channelSelect");
+    var channelLoading = document.getElementById("channelLoading");
 
     guildSelect.addEventListener("change", function() {
-        const guildId = this.value;
+        var guildId = this.value;
         if (!guildId) return;
         channelSelect.innerHTML = '<option disabled selected>Chargement...</option>';
         channelSelect.disabled = true;
-        channelLoading.style.display = "block";
+        channelLoading.style.display = "flex";
         fetch('/api/discord/channels/' + guildId)
-            .then(response => response.json())
-            .then(data => {
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
                 channelSelect.innerHTML = '';
                 if (data.length === 0) {
-                    channelSelect.innerHTML = '<option disabled>Aucun salon trouvé</option>';
+                    channelSelect.innerHTML = '<option disabled>Aucun salon trouve</option>';
                 } else {
-                    data.forEach(channel => {
-                        const option = document.createElement('option');
+                    data.forEach(function(channel) {
+                        var option = document.createElement('option');
                         option.value = channel.id;
                         option.textContent = '#' + channel.name;
                         channelSelect.appendChild(option);
@@ -387,7 +951,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 channelSelect.disabled = false;
                 channelLoading.style.display = "none";
             })
-            .catch(err => {
+            .catch(function(err) {
                 console.error(err);
                 channelSelect.innerHTML = '<option disabled>Erreur de chargement</option>';
                 channelLoading.style.display = "none";
@@ -395,21 +959,35 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
-// Fonction pour sauvegarder
+// Toast helper
+function showToast(msg, color) {
+    var t = document.getElementById('toast');
+    t.style.background = color || 'var(--c-surface)';
+    t.style.color = '#fff';
+    t.innerHTML = msg;
+    t.style.display = 'flex';
+    setTimeout(function() { t.style.transform = 'translateY(0)'; t.style.opacity = '1'; }, 10);
+    setTimeout(function() {
+        t.style.transform = 'translateY(20px)'; t.style.opacity = '0';
+        setTimeout(function() { t.style.display = 'none'; }, 300);
+    }, 3000);
+}
+
+// Twitch save
 window.saveTwitchConfig = function() {
-    const enabled = document.getElementById('autoMsgEnabled').value === 'true';
-    const interval = document.getElementById('autoMsgInterval').value;
+    var enabled = document.getElementById('autoMsgEnabled').value === 'true';
+    var interval = document.getElementById('autoMsgInterval').value;
 
     fetch('/api/bot/auto-messages/deadpool', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ enabled: enabled, interval: interval })
     })
-    .then(r => r.json())
-    .then(d => {
-        if(d.success) alert("✅ Configuration Deadpool sauvegardée !");
-        else alert("Erreur sauvegarde.");
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if(d.success) showToast('<i class="ph ph-check-circle"></i> Configuration sauvegardee', 'rgba(16,185,129,0.9)');
+        else showToast('<i class="ph ph-x-circle"></i> Erreur sauvegarde', 'rgba(239,68,68,0.9)');
     });
-}
+};
 </script>
 {% endblock %}

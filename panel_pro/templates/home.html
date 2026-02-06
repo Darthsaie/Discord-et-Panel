@@ -1,90 +1,469 @@
 {% extends "base.html" %}
+{% set hide_sidebar = true %}
 
 {% block content %}
 <style>
+  /* ============================================
+     HERO SECTION
+     ============================================ */
   .hero {
+    min-height: 100vh;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; padding: 40px 20px;
-    min-height: 70vh;
-  }
-  
-  .hero-logo {
-    width: 140px; height: 140px; border-radius: 30px;
-    margin-bottom: 40px;
-    box-shadow: 0 0 50px rgba(99, 102, 241, 0.3);
-    border: 1px solid rgba(255,255,255,0.1);
-    animation: float 6s ease-in-out infinite;
+    text-align: center;
+    padding: 80px 20px 60px;
+    position: relative; overflow: hidden;
   }
 
-  @keyframes float {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-15px); }
-    100% { transform: translateY(0px); }
+  /* Animated orbs */
+  .hero-orb {
+    position: absolute; border-radius: 50%; pointer-events: none; filter: blur(80px);
+  }
+  .hero-orb-1 {
+    width: 500px; height: 500px; top: -10%; left: -5%;
+    background: radial-gradient(circle, rgba(99,102,241,0.25), transparent 70%);
+    animation: orbFloat1 18s ease-in-out infinite;
+  }
+  .hero-orb-2 {
+    width: 400px; height: 400px; bottom: 5%; right: -5%;
+    background: radial-gradient(circle, rgba(236,72,153,0.2), transparent 70%);
+    animation: orbFloat2 22s ease-in-out infinite;
+  }
+  .hero-orb-3 {
+    width: 300px; height: 300px; top: 40%; left: 60%;
+    background: radial-gradient(circle, rgba(34,197,94,0.15), transparent 70%);
+    animation: orbFloat1 15s ease-in-out infinite reverse;
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 18px; border-radius: var(--r-full);
+    background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
+    color: var(--c-accent-light); font-size: 0.8rem; font-weight: 600;
+    margin-bottom: 32px; position: relative; z-index: 1;
   }
 
   .hero h1 {
-    font-size: 3.5rem; font-weight: 800; line-height: 1.1; margin: 0 0 20px 0;
-    background: linear-gradient(to right, #fff, #94a3b8);
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 900; line-height: 1.08; margin: 0 0 24px;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, #fff 0%, #c7d2fe 40%, var(--c-accent-light) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative; z-index: 1;
+  }
+
+  .hero-sub {
+    font-size: 1.2rem; color: var(--c-text-muted); max-width: 600px; margin: 0 auto 48px;
+    line-height: 1.7; position: relative; z-index: 1;
+  }
+
+  .hero-ctas {
+    display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+    position: relative; z-index: 1;
+  }
+
+  .hero-scroll-hint {
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    color: var(--c-text-dim); font-size: 0.8rem;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    animation: bounceDown 2s ease-in-out infinite;
+  }
+  @keyframes bounceDown {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(8px); }
+  }
+
+  /* ============================================
+     BOT SHOWCASE
+     ============================================ */
+  .section-wrapper {
+    max-width: 1200px; margin: 0 auto; padding: 80px 20px;
+  }
+
+  .bots-showcase {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px; margin-top: 48px;
+  }
+
+  .bot-card {
+    background: var(--c-surface);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-2xl);
+    padding: 32px 24px;
+    text-align: center;
+    transition: all 0.4s var(--ease-out);
+    position: relative; overflow: hidden;
+  }
+  .bot-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--bot-color);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .bot-card:hover {
+    transform: translateY(-8px);
+    border-color: var(--c-border-light);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3), 0 0 30px var(--bot-glow);
+  }
+  .bot-card:hover::before { opacity: 1; }
+
+  .bot-card[data-bot="homer"]   { --bot-color: var(--c-homer);   --bot-glow: rgba(255,212,59,0.15); }
+  .bot-card[data-bot="cartman"] { --bot-color: var(--c-cartman);  --bot-glow: rgba(239,68,68,0.15); }
+  .bot-card[data-bot="deadpool"]{ --bot-color: var(--c-deadpool); --bot-glow: rgba(220,38,38,0.15); }
+  .bot-card[data-bot="yoda"]    { --bot-color: var(--c-yoda);    --bot-glow: rgba(34,197,94,0.15); }
+
+  .bot-card-avatar {
+    width: 80px; height: 80px; border-radius: 20px; margin: 0 auto 20px;
+    object-fit: cover; border: 2px solid rgba(255,255,255,0.1);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .bot-card-avatar-placeholder {
+    width: 80px; height: 80px; border-radius: 20px; margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; font-weight: 900; color: #fff;
+    background: linear-gradient(135deg, var(--bot-color), rgba(255,255,255,0.1));
+  }
+
+  .bot-card-name {
+    font-size: 1.4rem; font-weight: 800; margin-bottom: 8px;
+    color: var(--bot-color);
+  }
+  .bot-card-tagline {
+    color: var(--c-text-muted); font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px;
+  }
+
+  .bot-card-commands {
+    display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 20px;
+  }
+  .cmd-pill {
+    padding: 4px 12px; border-radius: var(--r-full);
+    background: rgba(255,255,255,0.06); border: 1px solid var(--c-border);
+    font-size: 0.75rem; font-weight: 600; color: var(--c-text-muted);
+  }
+
+  .bot-card-link {
+    color: var(--c-accent-light); font-weight: 600; font-size: 0.85rem;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+  }
+  .bot-card-link:hover { color: #fff; gap: 10px; }
+
+  /* ============================================
+     FEATURES GRID
+     ============================================ */
+  .features-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px; margin-top: 48px;
+  }
+
+  .feature-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-xl);
+    padding: 28px 24px;
+    transition: all 0.3s var(--ease-out);
+  }
+  .feature-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--c-border-light);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+  }
+
+  .feature-icon {
+    width: 48px; height: 48px; border-radius: var(--r-md);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; margin-bottom: 16px;
+    background: rgba(99,102,241,0.15); color: var(--c-accent-light);
+  }
+  .feature-card h3 {
+    font-size: 1.05rem; font-weight: 700; margin: 0 0 8px;
+  }
+  .feature-card p {
+    color: var(--c-text-muted); font-size: 0.85rem; line-height: 1.5; margin: 0;
+  }
+
+  /* ============================================
+     PRICING TEASER
+     ============================================ */
+  .pricing-teaser {
+    max-width: 560px; margin: 48px auto 0;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border-light);
+    border-radius: var(--r-2xl);
+    padding: 48px 40px;
+    text-align: center;
+    position: relative; overflow: hidden;
+    box-shadow: 0 0 60px var(--c-accent-glow), 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .pricing-teaser::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--c-accent), #ec4899, var(--c-accent));
+  }
+
+  .pricing-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: var(--r-full);
+    background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3);
+    color: #4ade80; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .pricing-amount {
+    font-size: 4rem; font-weight: 900; line-height: 1; margin-bottom: 4px;
+    background: linear-gradient(135deg, #fff, var(--c-accent-light));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-
-  .hero p {
-    font-size: 1.2rem; color: var(--secondary); max-width: 600px; margin: 0 auto 50px auto;
-    line-height: 1.6;
+  .pricing-period {
+    color: var(--c-text-muted); font-size: 1rem; margin-bottom: 32px;
   }
 
-  /* LE BOUTON DISCORD OFFICIEL */
-  .btn-discord-hero {
-    background-color: #5865F2;
-    color: white;
-    font-size: 1.1rem; font-weight: 700;
-    padding: 16px 32px;
-    border-radius: 12px;
-    text-decoration: none;
-    display: inline-flex; align-items: center; gap: 12px;
-    transition: all 0.2s ease;
-    box-shadow: 0 10px 25px rgba(88, 101, 242, 0.3);
-    border: 1px solid rgba(255,255,255,0.1);
+  .pricing-features {
+    list-style: none; padding: 0; margin: 0 0 32px;
+    display: flex; flex-direction: column; gap: 12px; text-align: left;
+  }
+  .pricing-features li {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--c-text-muted); font-size: 0.95rem;
+  }
+  .pricing-features li i { color: var(--c-success); font-size: 1.1rem; }
+
+  /* ============================================
+     STATS / SOCIAL PROOF
+     ============================================ */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 32px; margin-top: 48px; text-align: center;
+  }
+  .stat-item-big {
+    padding: 24px;
+  }
+  .stat-number {
+    font-size: 3rem; font-weight: 900; line-height: 1;
+    background: linear-gradient(135deg, #fff, var(--c-accent-light));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .stat-label-big {
+    color: var(--c-text-muted); font-size: 0.9rem; font-weight: 500;
   }
 
-  .btn-discord-hero:hover {
-    background-color: #4752C4;
-    transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 15px 35px rgba(88, 101, 242, 0.5);
+  /* ============================================
+     RESPONSIVE
+     ============================================ */
+  @media (max-width: 768px) {
+    .hero { padding: 60px 20px 40px; min-height: 90vh; }
+    .hero-sub { font-size: 1rem; }
+    .section-wrapper { padding: 60px 20px; }
+    .bots-showcase { grid-template-columns: 1fr 1fr; }
+    .features-grid { grid-template-columns: 1fr 1fr; }
+    .pricing-teaser { padding: 36px 24px; }
+    .pricing-amount { font-size: 3rem; }
+    .stats-row { grid-template-columns: 1fr; gap: 16px; }
   }
 
-  @media(max-width: 600px) {
-    .hero h1 { font-size: 2.5rem; }
-    .hero-logo { width: 100px; height: 100px; }
-    .btn-discord-hero { width: 100%; justify-content: center; }
+  @media (max-width: 480px) {
+    .bots-showcase { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+    .hero-ctas { flex-direction: column; width: 100%; }
+    .hero-ctas a { width: 100%; justify-content: center; }
   }
 </style>
 
-<div class="hero">
-  <img src="{{ url_for('static', filename='4_U_BOT.jpg') }}" class="hero-logo">
+<!-- ============================================
+     HERO SECTION
+     ============================================ -->
+<section class="hero">
+  <div class="hero-orb hero-orb-1"></div>
+  <div class="hero-orb hero-orb-2"></div>
+  <div class="hero-orb hero-orb-3"></div>
 
-  <h1>Boostez votre<br>Serveur Discord.</h1>
-  <p>L'intelligence artificielle au service de votre communauté.<br>Animation, planification et fun.</p>
+  <div class="hero-badge reveal">
+    <i class="ph ph-sparkle"></i> Propulsé par l'Intelligence Artificielle
+  </div>
 
-  <div>
+  <h1 class="reveal reveal-delay-1">Transformez votre<br>serveur avec l'IA</h1>
+
+  <p class="hero-sub reveal reveal-delay-2">
+    4 bots aux personnalités uniques pour animer vos communautés Discord et Twitch.
+    Quiz, débats, météo, memes et bien plus — le tout propulsé par l'IA.
+  </p>
+
+  <div class="hero-ctas reveal reveal-delay-3">
     {% if session.get('user') %}
-      <div style="margin-bottom:20px; color:var(--secondary); font-size:1.1rem;">
-        Bon retour, <b style="color:#fff;">{{ session.user.username }}</b> !
-      </div>
-      <a href="{{ url_for('dashboard') }}" class="btn-discord-hero" style="background:linear-gradient(135deg, #6366f1, #8b5cf6);">
+      <a href="{{ url_for('dashboard') }}" class="btn-glow">
         <i class="ph ph-squares-four"></i> Accéder au Dashboard
       </a>
     {% else %}
-      <a href="{{ url_for('login_discord') }}" class="btn-discord-hero">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 127 96">
-          <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.15,105.15,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.11,77.11,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a45.57,45.57,0,0,0,65.18,0c.86.66,1.75,1.34,2.66,2a68.42,68.42,0,0,1-10.87,5.18,77.11,77.11,0,0,0,6.89,11.11A105.73,105.73,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
-        </svg>
-        Se connecter avec Discord
+      <a href="{{ url_for('login_discord') }}" class="btn-glow">
+        <i class="ph ph-play-circle"></i> Essai Gratuit
       </a>
-      <p style="margin-top:20px; font-size:0.85rem; color:var(--secondary); opacity:0.6;">
-        Connexion sécurisée OAuth2
-      </p>
+      <a href="#bots" class="btn-ghost">
+        <i class="ph ph-arrow-down"></i> Découvrir
+      </a>
     {% endif %}
   </div>
-</div>
+
+  <div class="hero-scroll-hint">
+    <span>Scroll</span>
+    <i class="ph ph-caret-double-down"></i>
+  </div>
+</section>
+
+<!-- ============================================
+     BOT SHOWCASE
+     ============================================ -->
+<section class="section-wrapper" id="bots">
+  <div class="text-center reveal">
+    <div class="section-label">Nos Bots</div>
+    <h2 class="section-title gradient-text">4 personnalités, 1 mission</h2>
+    <p class="section-desc mx-auto">Chaque bot a sa propre personnalité et son style unique. Choisissez celui qui correspond le mieux à votre communauté.</p>
+  </div>
+
+  <div class="bots-showcase">
+    {% set bots_info = [
+      {"key": "homer", "name": "Homer", "tagline": "D'oh! L'IA qui rend ton serveur plus fun qu'une bière au Moe's", "commands": ["/news", "/meteo", "/quiz", "/meme", "/debat"]},
+      {"key": "cartman", "name": "Cartman", "tagline": "Respectez mon autoritah! Le bot qui pimente tes discussions", "commands": ["/clash", "/debat", "/quiz", "/news", "/recap"]},
+      {"key": "deadpool", "name": "Deadpool", "tagline": "Maximum effort! Memes, chaos et le meilleur bot Twitch", "commands": ["/meme", "/clash", "/news", "/debat", "/quiz"]},
+      {"key": "yoda", "name": "Yoda", "tagline": "La Force, puissante dans ce serveur elle est", "commands": ["/quiz", "/debat", "/recap", "/meteo", "/news"]}
+    ] %}
+
+    {% for bot in bots_info %}
+    <div class="bot-card reveal reveal-delay-{{ loop.index }}" data-bot="{{ bot.key }}">
+      {% set avatar = (bot_avatars or {}).get(bot.key) %}
+      {% if avatar %}
+        <img src="{{ avatar }}" class="bot-card-avatar" alt="{{ bot.name }}">
+      {% else %}
+        <div class="bot-card-avatar-placeholder">{{ bot.name[:1] }}</div>
+      {% endif %}
+
+      <div class="bot-card-name">{{ bot.name }}</div>
+      <div class="bot-card-tagline">{{ bot.tagline }}</div>
+
+      <div class="bot-card-commands">
+        {% for cmd in bot.commands %}
+          <span class="cmd-pill">{{ cmd }}</span>
+        {% endfor %}
+      </div>
+
+      <a href="/bots/{{ bot.key }}" class="bot-card-link">
+        En savoir plus <i class="ph ph-arrow-right"></i>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ============================================
+     FEATURES GRID
+     ============================================ -->
+<section class="section-wrapper" id="features">
+  <div class="text-center reveal">
+    <div class="section-label">Fonctionnalités</div>
+    <h2 class="section-title gradient-text">Tout ce qu'il faut pour animer</h2>
+    <p class="section-desc mx-auto">Des fonctionnalités pensées pour engager votre communauté et automatiser votre serveur.</p>
+  </div>
+
+  <div class="features-grid">
+    {% set features = [
+      {"icon": "ph-brain", "title": "Quiz IA", "desc": "Questions générées par l'IA avec classement et scores persistants."},
+      {"icon": "ph-swords", "title": "Débats épiques", "desc": "Opposez deux bots sur n'importe quel sujet pour des débats hilarants."},
+      {"icon": "ph-cloud-sun", "title": "Météo en direct", "desc": "Prévisions météo en temps réel commentées avec humour par votre bot."},
+      {"icon": "ph-smiley-sticker", "title": "Memes", "desc": "Les meilleurs memes de Reddit, commentés avec la personnalité du bot."},
+      {"icon": "ph-calendar-dots", "title": "Programmateur", "desc": "Planifiez l'envoi automatique de news, météo et memes à heure fixe."},
+      {"icon": "ph-twitch-logo", "title": "Twitch", "desc": "Deadpool est aussi disponible sur Twitch pour animer vos lives."},
+      {"icon": "ph-buildings", "title": "Multi-serveur", "desc": "Un seul abonnement par bot, utilisable sur votre serveur ou chaîne."},
+      {"icon": "ph-newspaper", "title": "Flash Info", "desc": "Résumés IA des dernières discussions de votre serveur."}
+    ] %}
+
+    {% for feat in features %}
+    <div class="feature-card reveal reveal-delay-{{ (loop.index0 % 4) + 1 }}">
+      <div class="feature-icon"><i class="ph {{ feat.icon }}"></i></div>
+      <h3>{{ feat.title }}</h3>
+      <p>{{ feat.desc }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ============================================
+     PRICING TEASER
+     ============================================ -->
+<section class="section-wrapper" id="pricing">
+  <div class="text-center reveal">
+    <div class="section-label">Tarifs</div>
+    <h2 class="section-title gradient-text">Simple et transparent</h2>
+    <p class="section-desc mx-auto">Un seul prix, toutes les fonctionnalités incluses. Pas de frais cachés.</p>
+  </div>
+
+  <div class="pricing-teaser reveal">
+    <div class="pricing-badge"><i class="ph ph-gift"></i> {{ trial_days }} jour{{ 's' if trial_days > 1 }} d'essai gratuit</div>
+    <div class="pricing-amount">2.99&euro;</div>
+    <div class="pricing-period">par mois, par bot</div>
+
+    <ul class="pricing-features">
+      <li><i class="ph ph-check-circle"></i> Toutes les commandes IA</li>
+      <li><i class="ph ph-check-circle"></i> Personnalité unique du bot</li>
+      <li><i class="ph ph-check-circle"></i> Programmateur automatique</li>
+      <li><i class="ph ph-check-circle"></i> Quiz avec classement</li>
+      <li><i class="ph ph-check-circle"></i> Support prioritaire</li>
+      <li><i class="ph ph-check-circle"></i> Mises à jour régulières</li>
+    </ul>
+
+    <a href="/pricing" class="btn-glow" style="width:100%;">
+      <i class="ph ph-rocket-launch"></i> Voir les tarifs
+    </a>
+  </div>
+</section>
+
+<!-- ============================================
+     SOCIAL PROOF / STATS
+     ============================================ -->
+<section class="section-wrapper">
+  <div class="text-center reveal">
+    <div class="section-label">En chiffres</div>
+    <h2 class="section-title gradient-text">Déjà adopté par la communauté</h2>
+  </div>
+
+  <div class="stats-row reveal">
+    <div class="stat-item-big">
+      <div class="stat-number" data-count="4">4</div>
+      <div class="stat-label-big">Bots IA uniques</div>
+    </div>
+    <div class="stat-item-big">
+      <div class="stat-number" data-count="10">10+</div>
+      <div class="stat-label-big">Commandes disponibles</div>
+    </div>
+    <div class="stat-item-big">
+      <div class="stat-number" data-count="2">2</div>
+      <div class="stat-label-big">Plateformes (Discord & Twitch)</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================
+     FINAL CTA
+     ============================================ -->
+<section class="section-wrapper" style="padding-bottom:100px;">
+  <div class="text-center reveal">
+    <h2 class="section-title gradient-text">Prêt à transformer votre serveur ?</h2>
+    <p class="section-desc mx-auto" style="margin-bottom:32px;">Commencez avec un essai gratuit de {{ trial_days }} jour{{ 's' if trial_days > 1 }}. Aucune carte bancaire requise.</p>
+    <div class="hero-ctas">
+      {% if session.get('user') %}
+        <a href="{{ url_for('dashboard') }}" class="btn-glow">
+          <i class="ph ph-squares-four"></i> Mon Dashboard
+        </a>
+      {% else %}
+        <a href="{{ url_for('login_discord') }}" class="btn-glow">
+          <i class="ph ph-rocket-launch"></i> Commencer gratuitement
+        </a>
+        <a href="/faq" class="btn-ghost">
+          <i class="ph ph-question"></i> Questions fréquentes
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
 {% endblock %}

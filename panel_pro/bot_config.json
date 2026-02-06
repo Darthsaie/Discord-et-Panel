@@ -1,6 +1,6 @@
 {
     "deadpool": {
-        "enabled": true,
+        "enabled": false,
         "interval": 15
     }
 }

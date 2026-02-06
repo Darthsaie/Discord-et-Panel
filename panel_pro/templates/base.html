@@ -2,131 +2,372 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>4U BOT</title>
+  <title>4U BOT — IA pour Discord & Twitch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
-  
+  <meta name="description" content="Bots IA personnalisés pour animer vos serveurs Discord et chaînes Twitch. Quiz, débats, météo, memes et plus.">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <link rel="icon" href="{{ url_for('static', filename='4_U_BOT.jpg') }}" type="image/jpeg">
   <link rel="shortcut icon" href="{{ url_for('static', filename='4_U_BOT.jpg') }}" type="image/jpeg">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
   <style>
+    /* ============================================
+       DESIGN TOKENS
+       ============================================ */
     :root {
-      --primary: #ffffff;
-      --secondary: #cbd5e1;
+      /* Colors */
+      --c-bg: #0a0e1a;
+      --c-bg-alt: #0f172a;
+      --c-surface: rgba(15, 23, 42, 0.85);
+      --c-surface-light: rgba(30, 41, 59, 0.6);
+      --c-text: #f8fafc;
+      --c-text-muted: #94a3b8;
+      --c-text-dim: #64748b;
+      --c-border: rgba(255, 255, 255, 0.08);
+      --c-border-light: rgba(255, 255, 255, 0.12);
+      --c-accent: #6366f1;
+      --c-accent-light: #818cf8;
+      --c-accent-glow: rgba(99, 102, 241, 0.35);
+      --c-success: #22c55e;
+      --c-warning: #f59e0b;
+      --c-danger: #ef4444;
+      --c-trial: #f97316;
+
+      /* Legacy aliases (for scheduler, leaderboard, admin pages) */
+      --primary: #f8fafc;
+      --secondary: #94a3b8;
       --accent: #6366f1;
-      --glass-bg: rgba(15, 23, 42, 0.85); 
-      --glass-border: rgba(255, 255, 255, 0.1);
+      --glass-bg: rgba(15, 23, 42, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.08);
+
+      /* Bot identity colors */
+      --c-homer: #FFD43B;
+      --c-cartman: #EF4444;
+      --c-deadpool: #DC2626;
+      --c-yoda: #22C55E;
+
+      /* Spacing */
+      --sp-xs: 4px;
+      --sp-sm: 8px;
+      --sp-md: 16px;
+      --sp-lg: 24px;
+      --sp-xl: 40px;
+      --sp-2xl: 64px;
+      --sp-3xl: 96px;
+
+      /* Radius */
+      --r-sm: 8px;
+      --r-md: 12px;
+      --r-lg: 16px;
+      --r-xl: 20px;
+      --r-2xl: 24px;
+      --r-full: 9999px;
+
+      /* Transitions */
+      --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-    /* FOND D'ÉCRAN FIXE */
-    .bg-fixed {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -5;
-        background-image: url("{{ url_for('static', filename='background.jpg') }}");
-        background-size: cover; background-position: center; background-repeat: no-repeat;
-    }
-    .bg-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -4;
-        background: rgba(15, 23, 42, 0.75); pointer-events: none;
-    }
+    /* ============================================
+       RESET & BASE
+       ============================================ */
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     body {
       margin: 0;
       font-family: 'Outfit', sans-serif;
-      color: var(--primary);
-      background-color: #0f172a; 
+      color: var(--c-text);
+      background-color: var(--c-bg);
       display: flex;
-      height: 100vh; 
-      overflow: hidden; 
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
-    a { text-decoration: none; color: inherit; transition: 0.2s; }
+    a { text-decoration: none; color: inherit; transition: color 0.2s var(--ease-out); }
+    img { max-width: 100%; display: block; }
 
-    /* --- SIDEBAR (PC) --- */
+    /* ============================================
+       ANIMATED CSS BACKGROUND (replaces background.jpg)
+       ============================================ */
+    .bg-animated {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -5;
+      background: var(--c-bg);
+      overflow: hidden;
+    }
+    .bg-animated::before {
+      content: '';
+      position: absolute;
+      top: -40%; left: -20%;
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+      border-radius: 50%;
+      animation: orbFloat1 20s ease-in-out infinite;
+    }
+    .bg-animated::after {
+      content: '';
+      position: absolute;
+      bottom: -30%; right: -15%;
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
+      border-radius: 50%;
+      animation: orbFloat2 25s ease-in-out infinite;
+    }
+    @keyframes orbFloat1 {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      33% { transform: translate(60px, -40px) scale(1.1); }
+      66% { transform: translate(-30px, 30px) scale(0.95); }
+    }
+    @keyframes orbFloat2 {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      50% { transform: translate(-50px, -40px) scale(1.08); }
+    }
+
+    /* Subtle grid overlay */
+    .bg-grid {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -4;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* ============================================
+       REUSABLE COMPONENTS
+       ============================================ */
+
+    /* Buttons */
+    .btn-primary {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 24px; border-radius: var(--r-md); font-weight: 700; font-size: 0.95rem;
+      background: linear-gradient(135deg, var(--c-accent), #8b5cf6);
+      color: #fff; border: none; cursor: pointer;
+      transition: all 0.3s var(--ease-out);
+      box-shadow: 0 4px 15px var(--c-accent-glow);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px var(--c-accent-glow);
+    }
+
+    .btn-ghost {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 24px; border-radius: var(--r-md); font-weight: 600; font-size: 0.95rem;
+      background: rgba(255,255,255,0.05); color: var(--c-text);
+      border: 1px solid var(--c-border-light); cursor: pointer;
+      transition: all 0.3s var(--ease-out);
+    }
+    .btn-ghost:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+      transform: translateY(-2px);
+    }
+
+    .btn-glow {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 14px 28px; border-radius: var(--r-md); font-weight: 700; font-size: 1rem;
+      background: linear-gradient(135deg, var(--c-accent), #8b5cf6);
+      color: #fff; border: 1px solid rgba(255,255,255,0.2); cursor: pointer;
+      transition: all 0.3s var(--ease-out);
+      box-shadow: 0 0 20px var(--c-accent-glow), 0 8px 25px rgba(0,0,0,0.3);
+      position: relative; overflow: hidden;
+    }
+    .btn-glow::before {
+      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+      transition: 0.5s;
+    }
+    .btn-glow:hover::before { left: 100%; }
+    .btn-glow:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 0 35px var(--c-accent-glow), 0 12px 35px rgba(0,0,0,0.4);
+    }
+
+    /* Cards */
+    .card-glass {
+      background: var(--c-surface);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-xl);
+      padding: var(--sp-lg);
+      transition: all 0.3s var(--ease-out);
+    }
+    .card-glass:hover {
+      border-color: var(--c-border-light);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+
+    /* Badges */
+    .badge-status {
+      font-size: 0.7rem; font-weight: 800; padding: 4px 12px;
+      border-radius: var(--r-full); text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.5px;
+    }
+    .badge-active {
+      background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3);
+      box-shadow: 0 0 10px rgba(34,197,94,0.2);
+    }
+    .badge-trial {
+      background: rgba(249,115,22,0.15); color: #fb923c; border: 1px solid rgba(249,115,22,0.3);
+      box-shadow: 0 0 10px rgba(249,115,22,0.2);
+    }
+    .badge-inactive {
+      background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2);
+    }
+    .badge-status::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; animation: badgePulse 2s ease-in-out infinite;
+    }
+    @keyframes badgePulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* Text styles */
+    .gradient-text {
+      background: linear-gradient(135deg, #fff 0%, var(--c-accent-light) 50%, var(--c-accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .neon-text {
+      text-shadow: 0 0 10px var(--c-accent-glow), 0 0 40px var(--c-accent-glow);
+    }
+
+    /* Flash messages */
+    .flash { padding: 15px 20px; border-radius: var(--r-md); margin-bottom: 15px; font-weight: 600; background: rgba(0,0,0,0.5); border: 1px solid var(--c-border); backdrop-filter: blur(10px); }
+    .flash.ok { border-left: 4px solid var(--c-success); color: var(--c-success); }
+    .flash.error { border-left: 4px solid var(--c-danger); color: var(--c-danger); }
+    .flash.info { border-left: 4px solid var(--c-accent); color: var(--c-accent-light); }
+
+    /* ============================================
+       PUBLIC TOP NAVIGATION
+       ============================================ */
+    {% if hide_sidebar is defined and hide_sidebar %}
+    .public-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      padding: 16px 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(10, 14, 26, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid transparent;
+      transition: all 0.3s var(--ease-out);
+    }
+    .public-nav.scrolled {
+      background: rgba(10, 14, 26, 0.95);
+      border-bottom-color: var(--c-border);
+      box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+    }
+    .public-nav-brand {
+      display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 1.3rem;
+    }
+    .public-nav-brand img { width: 36px; height: 36px; border-radius: 10px; }
+    .public-nav-links {
+      display: flex; align-items: center; gap: 32px;
+    }
+    .public-nav-links a {
+      color: var(--c-text-muted); font-weight: 500; font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+    .public-nav-links a:hover { color: #fff; }
+    .public-nav-cta {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .public-nav-cta .btn-primary { padding: 10px 20px; font-size: 0.85rem; }
+
+    .public-nav-mobile-toggle {
+      display: none; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;
+    }
+
+    @media (max-width: 900px) {
+      .public-nav { padding: 14px 20px; }
+      .public-nav-links { display: none; }
+      .public-nav-links.open {
+        display: flex; flex-direction: column;
+        position: absolute; top: 100%; left: 0; right: 0;
+        background: rgba(10, 14, 26, 0.98);
+        border-bottom: 1px solid var(--c-border);
+        padding: 20px; gap: 16px;
+      }
+      .public-nav-mobile-toggle { display: block; }
+      .public-nav-cta .btn-primary span.nav-label { display: none; }
+    }
+    {% endif %}
+
+    /* ============================================
+       SIDEBAR (logged-in pages)
+       ============================================ */
+    {% if not (hide_sidebar is defined and hide_sidebar) %}
     .sidebar {
       width: 300px;
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(10, 14, 26, 0.6);
       backdrop-filter: blur(20px);
-      border-right: 1px solid var(--glass-border);
+      border-right: 1px solid var(--c-border);
       display: flex; flex-direction: column;
       padding: 30px;
       flex-shrink: 0;
       z-index: 100;
       height: 100%;
-      overflow-y: auto; 
+      overflow-y: auto;
     }
     .sidebar::-webkit-scrollbar { width: 0; background: transparent; }
 
-    .brand { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border); flex-shrink: 0; }
+    .brand { display: flex; align-items: center; gap: 15px; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid var(--c-border); flex-shrink: 0; }
     .brand-logo { width: 70px; height: 70px; border-radius: 18px; object-fit: cover; border: 2px solid rgba(255,255,255,0.1); }
     .brand-title { font-weight: 800; font-size: 1.8rem; }
     .brand-subtitle { font-size: 0.8rem; opacity: 0.6; text-transform: uppercase; letter-spacing: 2px; }
-    
+
     .nav-menu { display: flex; flex-direction: column; gap: 5px; flex-grow: 1; }
-    .nav-item { padding: 12px 16px; border-radius: 10px; color: var(--secondary); font-weight: 600; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .nav-item { padding: 12px 16px; border-radius: var(--r-md); color: var(--c-text-muted); font-weight: 600; display: flex; align-items: center; gap: 12px; flex-shrink: 0; transition: all 0.2s var(--ease-out); }
     .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
-    .nav-item.active { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+    .nav-item.active { background: rgba(99, 102, 241, 0.2); color: var(--c-accent-light); }
     .nav-item.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
-    .nav-item i { font-size: 1.3rem; } 
+    .nav-item i { font-size: 1.3rem; }
 
     .user-section-wrapper { margin-top: auto; display: flex; flex-direction: column; gap: 15px; flex-shrink: 0; padding-top: 20px; }
-    .sync-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 10px; font-weight: 600; cursor: pointer; }
-    .user-card { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--glass-border); }
+    .sync-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--c-border); border-radius: var(--r-md); font-weight: 600; cursor: pointer; transition: all 0.2s; color: var(--c-text); }
+    .sync-btn:hover { background: rgba(255,255,255,0.1); }
+    .user-card { background: rgba(0,0,0,0.3); padding: 12px; border-radius: var(--r-md); display: flex; align-items: center; gap: 12px; border: 1px solid var(--c-border); }
     .user-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
-    .logout-link { color: #f87171; font-size: 0.8rem; background: none; border: none; padding: 10px 0; cursor: pointer; font-weight: 600; text-align: left; }
-
-    /* --- MAIN CONTENT (PC) --- */
-    .main-wrapper { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-    .main-content { flex: 1; overflow-y: auto; padding: 40px; position: relative; }
-    .footer { padding: 20px; text-align: center; color: var(--secondary); font-size: 0.8rem; border-top: 1px solid var(--glass-border); }
-
-    /* UTILS */
-    .card { background: rgba(30, 41, 59, 0.7); border: 1px solid var(--glass-border); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; font-size: 0.9rem; }
-    .flash { padding: 15px; border-radius: 10px; margin-bottom: 15px; font-weight: 600; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); }
-    .flash.ok { border-left: 4px solid #10b981; color: #10b981; }
-    .flash.error { border-left: 4px solid #ef4444; color: #ef4444; }
+    .logout-link { color: #f87171; font-size: 0.8rem; background: none; border: none; padding: 10px 0; cursor: pointer; font-weight: 600; text-align: left; font-family: 'Outfit', sans-serif; }
 
     .mobile-header { display: none; }
     .overlay { display: none; }
 
-    /* --- MOBILE RESPONSIVE --- */
     @media (max-width: 1200px) {
-      body { 
-        flex-direction: column; 
-        height: auto;      
+      body {
+        flex-direction: column;
+        height: auto;
         min-height: 100vh;
-        overflow-y: auto !important; 
+        overflow-y: auto !important;
         overflow-x: hidden;
       }
-      
-      .mobile-header { 
-        display: flex; height: 60px; 
-        background: #0f172a; 
-        align-items: center; justify-content: space-between; 
-        padding: 0 20px; border-bottom: 1px solid var(--glass-border); 
-        position: fixed; top: 0; left: 0; right: 0; z-index: 500; 
+
+      .mobile-header {
+        display: flex; height: 60px;
+        background: var(--c-bg);
+        align-items: center; justify-content: space-between;
+        padding: 0 20px; border-bottom: 1px solid var(--c-border);
+        position: fixed; top: 0; left: 0; right: 0; z-index: 500;
         padding-top: env(safe-area-inset-top);
         height: calc(60px + env(safe-area-inset-top));
       }
-      
-      .sidebar { 
-        position: fixed; top: 0; bottom: 0; left: 0; 
-        width: 280px; 
-        background: #0f1220; 
-        transform: translateX(-100%); 
+
+      .sidebar {
+        position: fixed; top: 0; bottom: 0; left: 0;
+        width: 280px;
+        background: rgba(10, 14, 26, 0.98);
+        transform: translateX(-100%);
         transition: transform 0.3s ease;
         z-index: 1000;
-        height: 100vh; 
-        overflow-y: auto !important; 
+        height: 100vh;
+        overflow-y: auto !important;
         -webkit-overflow-scrolling: touch;
-        padding-top: calc(80px + env(safe-area-inset-top)); 
-        padding-bottom: 150px; 
+        padding-top: calc(80px + env(safe-area-inset-top));
+        padding-bottom: 150px;
       }
       .sidebar.open { transform: translateX(0); box-shadow: 100px 0 0 rgba(0,0,0,0.5); }
 
@@ -137,20 +378,145 @@
       }
       .overlay.show { display: block; }
 
-      .main-wrapper { 
+      .main-wrapper {
         height: auto; overflow: visible !important;
         flex: none; display: block;
-        padding-top: calc(60px + env(safe-area-inset-top)); 
-      } 
-      
+        padding-top: calc(60px + env(safe-area-inset-top));
+      }
       .main-content { padding: 20px; overflow: visible !important; height: auto; }
     }
+    {% endif %}
+
+    /* ============================================
+       MAIN CONTENT AREA
+       ============================================ */
+    .main-wrapper { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .main-content { flex: 1; overflow-y: auto; padding: 40px; position: relative; }
+
+    /* Footer (sidebar pages) */
+    {% if not (hide_sidebar is defined and hide_sidebar) %}
+    .footer-simple { padding: 20px; text-align: center; color: var(--c-text-muted); font-size: 0.8rem; border-top: 1px solid var(--c-border); }
+    {% endif %}
+
+    /* ============================================
+       PUBLIC FOOTER (landing pages)
+       ============================================ */
+    {% if hide_sidebar is defined and hide_sidebar %}
+    body {
+      display: block !important;
+      height: auto !important;
+      overflow-y: auto !important;
+    }
+    .main-wrapper { height: auto !important; overflow: visible !important; }
+    .main-content { overflow: visible !important; height: auto !important; padding: 0 !important; padding-top: 72px !important; }
+
+    .public-footer {
+      background: rgba(10, 14, 26, 0.95);
+      border-top: 1px solid var(--c-border);
+      padding: 60px 40px 30px;
+    }
+    .public-footer-grid {
+      max-width: 1200px; margin: 0 auto;
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px;
+    }
+    .public-footer-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .public-footer-brand img { width: 40px; height: 40px; border-radius: 10px; }
+    .public-footer-brand span { font-weight: 800; font-size: 1.3rem; }
+    .public-footer-desc { color: var(--c-text-muted); font-size: 0.9rem; line-height: 1.6; max-width: 300px; }
+    .public-footer h4 { font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 16px; color: var(--c-text); }
+    .public-footer-links { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+    .public-footer-links a { color: var(--c-text-muted); font-size: 0.9rem; transition: color 0.2s; }
+    .public-footer-links a:hover { color: #fff; }
+    .public-footer-bottom {
+      max-width: 1200px; margin: 40px auto 0;
+      padding-top: 20px; border-top: 1px solid var(--c-border);
+      display: flex; justify-content: space-between; align-items: center;
+      color: var(--c-text-dim); font-size: 0.8rem;
+    }
+
+    @media (max-width: 768px) {
+      .public-footer { padding: 40px 20px 20px; }
+      .public-footer-grid { grid-template-columns: 1fr 1fr; gap: 30px; }
+      .public-footer-bottom { flex-direction: column; gap: 10px; text-align: center; }
+    }
+    @media (max-width: 480px) {
+      .public-footer-grid { grid-template-columns: 1fr; }
+    }
+    {% endif %}
+
+    /* ============================================
+       SCROLL REVEAL ANIMATIONS
+       ============================================ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+
+    /* ============================================
+       UTILITY CLASSES
+       ============================================ */
+    .section-label {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;
+      color: var(--c-accent-light); margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 2.5rem; font-weight: 900; line-height: 1.15; letter-spacing: -1px;
+      margin: 0 0 16px;
+    }
+    .section-desc {
+      color: var(--c-text-muted); font-size: 1.1rem; line-height: 1.6; max-width: 600px;
+    }
+    .text-center { text-align: center; }
+    .mx-auto { margin-left: auto; margin-right: auto; }
   </style>
 </head>
 <body>
 
-  <div class="bg-fixed"></div>
-  <div class="bg-overlay"></div>
+  <div class="bg-animated"></div>
+  <div class="bg-grid"></div>
+
+  {% if hide_sidebar is defined and hide_sidebar %}
+  <!-- ============================================
+       PUBLIC TOP NAVIGATION
+       ============================================ -->
+  <nav class="public-nav" id="publicNav">
+    <a href="/" class="public-nav-brand">
+      <img src="{{ url_for('static', filename='4_U_BOT.jpg') }}" alt="4U BOT">
+      <span>4U BOT</span>
+    </a>
+
+    <div class="public-nav-links" id="publicNavLinks">
+      <a href="/#features">Fonctionnalités</a>
+      <a href="/#bots">Nos Bots</a>
+      <a href="/pricing">Tarifs</a>
+      <a href="/faq">FAQ</a>
+    </div>
+
+    <div class="public-nav-cta">
+      {% if session.get('user') %}
+        <a href="{{ url_for('dashboard') }}" class="btn-primary"><i class="ph ph-squares-four"></i> <span class="nav-label">Dashboard</span></a>
+      {% else %}
+        <a href="{{ url_for('login_discord') }}" class="btn-primary"><i class="ph ph-sign-in"></i> <span class="nav-label">Connexion</span></a>
+      {% endif %}
+    </div>
+
+    <button class="public-nav-mobile-toggle" onclick="document.getElementById('publicNavLinks').classList.toggle('open')">
+      <i class="ph ph-list"></i>
+    </button>
+  </nav>
+  {% else %}
+  <!-- ============================================
+       SIDEBAR LAYOUT (logged-in)
+       ============================================ -->
   <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
 
   <header class="mobile-header">
@@ -158,7 +524,7 @@
       <img src="{{ url_for('static', filename='4_U_BOT.jpg') }}" style="width:32px; height:32px; border-radius:8px;">
       <span style="font-weight:800; font-size:1.1rem;">4U BOT</span>
     </div>
-    <button onclick="toggleMenu()" style="background:none; border:none; font-size:28px; color:white;">
+    <button onclick="toggleMenu()" style="background:none; border:none; font-size:28px; color:white; cursor:pointer;">
       <i class="ph ph-list"></i>
     </button>
   </header>
@@ -179,14 +545,12 @@
       <a href="{{ url_for('scheduler_list') }}" class="nav-item {{ 'active' if 'scheduler' in request.endpoint else '' }}">
         <i class="ph ph-calendar-plus"></i> Programmateur
       </a>
-      
-      <!-- CORRECTION : Lien Classement réactivé -->
       <a href="/leaderboard" class="nav-item {{ 'active' if request.endpoint == 'leaderboard' else '' }}">
         <i class="ph ph-trophy"></i> Classement
       </a>
-      
-      {% if session.get('admin_guild_ids') and dev_mode %}
-      <div style="margin:10px 0; border-top:1px solid rgba(255,255,255,0.1);"></div>
+
+      {% if is_admin %}
+      <div style="margin:10px 0; border-top:1px solid var(--c-border);"></div>
       <a href="/admin" class="nav-item {{ 'active' if 'admin' in request.endpoint else '' }}">
         <i class="ph ph-lightning"></i> Zone Admin
       </a>
@@ -195,7 +559,7 @@
 
     <div class="user-section-wrapper">
       <a href="{{ url_for('guilds_sync') }}" class="sync-btn">
-        <i class="ph ph-arrows-clockwise"></i> Sync Serveurs
+        <i class="ph ph-arrows-clockwise"></i> Sync Discord
       </a>
 
       {% if session.get('user') %}
@@ -205,55 +569,52 @@
           {% elif session.user.get('avatar') %}
             <img src="{{ session.user.avatar }}" class="user-avatar" alt="Avatar">
           {% else %}
-            <div style="width:38px;height:38px;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;">
+            <div style="width:38px;height:38px;border-radius:50%;background:var(--c-accent);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;">
               {{ session.user.username[:1] }}
             </div>
           {% endif %}
-          
+
           <div style="display:flex; flex-direction:column; overflow:hidden;">
             <span style="font-weight:700; font-size:0.9rem;">{{ session.user.display_name or session.user.username }}</span>
             {% if session.user.get('platform') == 'twitch' %}
-              <span style="font-size:0.7rem; opacity:0.6;">🟣 Connecté via Twitch</span>
+              <span style="font-size:0.7rem; color:var(--c-text-dim);">Twitch</span>
             {% else %}
-              <span style="font-size:0.7rem; opacity:0.6;">🔵 Connecté via Discord</span>
+              <span style="font-size:0.7rem; color:var(--c-text-dim);">Discord</span>
             {% endif %}
             <form action="{{ url_for('logout_discord') }}" method="post">
               <button class="logout-link" onclick="localStorage.removeItem('last_active_url');">Se déconnecter</button>
             </form>
           </div>
         </div>
-        
+
         {% if not session.user.get('platform') or session.user.platform != 'twitch' %}
-          <a href="{{ url_for('login_twitch') }}" class="sync-btn" style="background:#9146FF; color:white; border:none;">
+          <a href="{{ url_for('login_twitch') }}" class="sync-btn" style="background:rgba(145,70,255,0.2); color:#bf8fff; border-color:rgba(145,70,255,0.3);">
             <i class="ph ph-twitch-logo"></i> Connecter Twitch
           </a>
         {% endif %}
-        
+
         {% if not session.user.get('platform') or session.user.platform != 'discord' %}
-          <a href="{{ url_for('login_discord') }}" class="sync-btn" style="background:#5865F2; color:white; border:none;">
+          <a href="{{ url_for('login_discord') }}" class="sync-btn" style="background:rgba(88,101,242,0.2); color:#98a5f8; border-color:rgba(88,101,242,0.3);">
             <i class="ph ph-discord-logo"></i> Connecter Discord
           </a>
         {% endif %}
       {% else %}
         <div style="display: flex; flex-direction: column; gap: 10px;">
-          <a href="{{ url_for('login_discord') }}" class="sync-btn" style="background:#5865F2; color:white; border:none; display:flex; gap:10px; align-items:center;">
-             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 127 96">
-               <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.15,105.15,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.11,77.11,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a45.57,45.57,0,0,0,65.18,0c.86.66,1.75,1.34,2.66-2a68.42,68.42,0,0,1-10.87,5.18,77.11,77.11,0,0,0,6.89,11.11A105.73,105.73,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
-             </svg>
-             Connexion Discord
+          <a href="{{ url_for('login_discord') }}" class="btn-primary" style="width:100%; background:#5865F2;">
+            <i class="ph ph-discord-logo"></i> Connexion Discord
           </a>
-          <a href="{{ url_for('login_twitch') }}" class="sync-btn" style="background:#9146FF; color:white; border:none; display:flex; gap:10px; align-items:center;">
-             <i class="ph ph-twitch-logo" style="font-size: 20px;"></i>
-             Connexion Twitch
+          <a href="{{ url_for('login_twitch') }}" class="btn-primary" style="width:100%; background:#9146FF;">
+            <i class="ph ph-twitch-logo"></i> Connexion Twitch
           </a>
         </div>
       {% endif %}
     </div>
   </aside>
+  {% endif %}
 
   <div class="main-wrapper">
     <main class="main-content">
-      <div class="flash-container">
+      <div class="flash-container" {% if hide_sidebar is defined and hide_sidebar %}style="max-width:1200px; margin:0 auto; padding:0 20px;"{% endif %}>
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
@@ -266,17 +627,116 @@
       {% block content %}{% endblock %}
     </main>
 
-    <footer class="footer">
-      © 2025 4U BOT — Hébergé par <a href="#">darthsaie</a>
+    {% if hide_sidebar is defined and hide_sidebar %}
+    <!-- PUBLIC FOOTER -->
+    <footer class="public-footer">
+      <div class="public-footer-grid">
+        <div>
+          <div class="public-footer-brand">
+            <img src="{{ url_for('static', filename='4_U_BOT.jpg') }}" alt="4U BOT">
+            <span>4U BOT</span>
+          </div>
+          <p class="public-footer-desc">Bots IA pour animer vos communautés Discord et Twitch. Quiz, débats, météo, memes et bien plus.</p>
+        </div>
+        <div>
+          <h4>Produit</h4>
+          <ul class="public-footer-links">
+            <li><a href="/#bots">Nos Bots</a></li>
+            <li><a href="/#features">Fonctionnalités</a></li>
+            <li><a href="/pricing">Tarifs</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Support</h4>
+          <ul class="public-footer-links">
+            <li><a href="/faq">FAQ</a></li>
+            <li><a href="https://discord.gg/4ubot" target="_blank">Discord</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Légal</h4>
+          <ul class="public-footer-links">
+            <li><a href="/privacy">Confidentialité</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="public-footer-bottom">
+        <span>&copy; 2025 4U BOT — par darthsaie</span>
+        <span>Fait avec <span style="color:var(--c-danger);">&#9829;</span> et de l'IA</span>
+      </div>
     </footer>
+    {% else %}
+    <footer class="footer-simple">
+      &copy; 2025 4U BOT — par <a href="#" style="color:var(--c-accent-light);">darthsaie</a>
+    </footer>
+    {% endif %}
   </div>
 
   <script>
+    {% if hide_sidebar is defined and hide_sidebar %}
+    // Sticky nav on scroll
+    (function() {
+      var nav = document.getElementById('publicNav');
+      if (!nav) return;
+      window.addEventListener('scroll', function() {
+        nav.classList.toggle('scrolled', window.scrollY > 50);
+      });
+    })();
+    {% else %}
     function toggleMenu() {
       document.getElementById('sidebar').classList.toggle('open');
       document.getElementById('overlay').classList.toggle('show');
     }
+    {% endif %}
+  </script>
 
+  <!-- ============================================
+       GLOBAL SCRIPTS
+       ============================================ -->
+  <script>
+    // CSRF: inject token into all forms and fetch requests
+    (function() {
+      var csrfToken = document.querySelector('meta[name="csrf-token"]');
+      if (csrfToken) {
+        csrfToken = csrfToken.getAttribute('content');
+        document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(function(form) {
+          if (!form.querySelector('input[name="csrf_token"]')) {
+            var input = document.createElement('input');
+            input.type = 'hidden'; input.name = 'csrf_token'; input.value = csrfToken;
+            form.appendChild(input);
+          }
+        });
+        var origFetch = window.fetch;
+        window.fetch = function(url, opts) {
+          opts = opts || {};
+          if (opts.method && opts.method.toUpperCase() !== 'GET') {
+            opts.headers = opts.headers || {};
+            if (opts.headers instanceof Headers) {
+              if (!opts.headers.has('X-CSRFToken')) opts.headers.set('X-CSRFToken', csrfToken);
+            } else {
+              if (!opts.headers['X-CSRFToken']) opts.headers['X-CSRFToken'] = csrfToken;
+            }
+          }
+          return origFetch.call(this, url, opts);
+        };
+      }
+    })();
+
+    // Scroll-reveal utility (IntersectionObserver)
+    (function() {
+      var els = document.querySelectorAll('.reveal');
+      if (!els.length) return;
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+      els.forEach(function(el) { observer.observe(el); });
+    })();
+
+    // URL memory for logged-in users
     (function() {
       var lastUrl = localStorage.getItem('last_active_url');
       var lastTs = localStorage.getItem('last_active_ts');
@@ -284,14 +744,14 @@
       var currentPath = window.location.pathname;
 
       if ((currentPath === '/' || currentPath === '/login') && lastUrl && lastUrl !== window.location.href) {
-          if (lastTs && (now - lastTs) < 15000) {
-              window.location.replace(lastUrl);
-              return; 
-          }
+        if (lastTs && (now - lastTs) < 15000) {
+          window.location.replace(lastUrl);
+          return;
+        }
       }
-      if (currentPath !== '/logout') {
-          localStorage.setItem('last_active_url', window.location.href);
-          localStorage.setItem('last_active_ts', now);
+      if (currentPath !== '/logout' && currentPath !== '/' && currentPath !== '/pricing' && currentPath !== '/faq') {
+        localStorage.setItem('last_active_url', window.location.href);
+        localStorage.setItem('last_active_ts', now);
       }
     })();
   </script>

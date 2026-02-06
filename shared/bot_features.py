@@ -18,7 +18,7 @@ from shared.clash import clash_user
 # --- CONFIGURATION API ---
 PANEL_API_URL = "http://bots-panel:5000/api/bot/tasks" 
 PANEL_API_TOKEN = os.getenv("PANEL_API_TOKEN", "change_me_please")
-OPENWEATHER_KEY = "4ab04c88d8182cc1480e1525eaf95fad"
+OPENWEATHER_KEY = os.getenv("OPENWEATHER_KEY", "")
 
 RSS_MAP = {
     "gaming": "https://www.jeuxvideo.com/rss/rss.xml",

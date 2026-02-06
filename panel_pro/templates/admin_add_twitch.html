@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .admin-twitch-page {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .admin-twitch-page h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin: 0 0 8px;
+    background: linear-gradient(135deg, #fff, #bf8fff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .admin-twitch-page .page-sub {
+    color: var(--c-text-muted, #94a3b8);
+    font-size: 0.9rem;
+    margin-bottom: 32px;
+  }
+
+  .form-card {
+    background: var(--c-surface, rgba(15, 23, 42, 0.85));
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--c-border, rgba(255, 255, 255, 0.08));
+    border-radius: var(--r-xl, 20px);
+    padding: 32px;
+  }
+
+  .form-group {
+    margin-bottom: 24px;
+  }
+  .form-group label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    color: var(--c-text, #f8fafc);
+  }
+  .form-group input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: var(--r-md, 12px);
+    border: 1px solid var(--c-border, rgba(255, 255, 255, 0.08));
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--c-text, #f8fafc);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus {
+    outline: none;
+    border-color: rgba(145, 70, 255, 0.5);
+    box-shadow: 0 0 0 3px rgba(145, 70, 255, 0.15);
+  }
+  .form-group input::placeholder {
+    color: var(--c-text-dim, #64748b);
+  }
+  .form-hint {
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: var(--c-text-dim, #64748b);
+  }
+
+  .form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 8px;
+  }
+
+  .btn-twitch-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: var(--r-md, 12px);
+    font-weight: 700;
+    font-size: 0.95rem;
+    background: linear-gradient(135deg, #9146FF, #772CE8);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(145, 70, 255, 0.3);
+  }
+  .btn-twitch-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(145, 70, 255, 0.4);
+  }
+
+  .btn-cancel {
+    color: var(--c-text-muted, #94a3b8);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+  }
+  .btn-cancel:hover {
+    color: #fff;
+  }
+
+  .info-box {
+    background: rgba(249, 115, 22, 0.08);
+    border: 1px solid rgba(249, 115, 22, 0.2);
+    border-radius: var(--r-md, 12px);
+    padding: 16px 20px;
+    margin-top: 24px;
+  }
+  .info-box h3 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fb923c;
+    margin: 0 0 10px;
+  }
+  .info-box ol {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--c-text-muted, #94a3b8);
+    font-size: 0.8rem;
+    line-height: 1.8;
+  }
+</style>
+
+<div class="admin-twitch-page">
+  <h1><i class="ph ph-twitch-logo"></i> Ajouter Utilisateur Twitch</h1>
+  <p class="page-sub">Créer manuellement une guild Twitch avec un essai de 7 jours pour Deadpool.</p>
+
+  <div class="form-card">
+    <form method="post" action="{{ url_for('admin_add_twitch_user_post') }}">
+      <div class="form-group">
+        <label for="twitch_id">ID Twitch (numérique) *</label>
+        <input type="text" id="twitch_id" name="twitch_id" required placeholder="Ex: 123456789">
+        <div class="form-hint">L'ID numérique unique de l'utilisateur Twitch</div>
+      </div>
+
+      <div class="form-group">
+        <label for="twitch_login">Login Twitch (nom de chaîne) *</label>
+        <input type="text" id="twitch_login" name="twitch_login" required placeholder="Ex: flamilya">
+        <div class="form-hint">Le nom de la chaîne Twitch (en minuscules)</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-twitch-submit">
+          <i class="ph ph-plus-circle"></i> Ajouter l'utilisateur
+        </button>
+        <a href="{{ url_for('admin_subs_v2') }}" class="btn-cancel">Annuler</a>
+      </div>
+    </form>
+
+    <div class="info-box">
+      <h3><i class="ph ph-info"></i> Comment trouver l'ID Twitch ?</h3>
+      <ol>
+        <li>Demandez à l'utilisateur de se connecter au panel (recommandé)</li>
+        <li>Ou utilisez des outils en ligne comme "twitchidfinder.com"</li>
+        <li>Ou regardez dans l'URL : twitch.tv/popout/SON_ID/chat</li>
+      </ol>
+    </div>
+  </div>
+</div>
+{% endblock %}
